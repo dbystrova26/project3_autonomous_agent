@@ -407,7 +407,7 @@ Invoke-RestMethod -Uri "http://127.0.0.1:8000/triage" -Method POST -ContentType 
 
 **Run full research report (triggers SIGN flow):**
 ```bash
-curl -X POST http://127.0.0.1:8000/research -H "Content-Type: application/json" -d "{\"artist_name\": \"Fisher\", \"genre\": \"electronic\", \"triage_score\": 85}"
+curl -X POST http://127.0.0.1:8000/research -H "Content-Type: application/json" -d "{\"artist_name\": \"Fisher\", \"genre\": \"electronic\", \"triage_score\": 74}"
 ```
 Report saved to `reports/` as a Markdown file.
 
@@ -415,8 +415,8 @@ Report saved to `reports/` as a Markdown file.
 ```json
 {
   "artist_name": "Dua Lipa",
-  "score": 80,
-  "decision": "SIGN",
+  "score": 0,
+  "decision": "PASS",
   "signals": {
     "monthly_listeners": 3303823,
     "listeners": 3303823,
@@ -427,7 +427,7 @@ Report saved to `reports/` as a Markdown file.
     "genres": ["pop", "synthpop", "electropop"],
     "data_source": "spotify+lastfm"
   },
-  "reasoning": "Dua Lipa has 13.2M monthly proxy listeners (3.3M weekly × 4), 7% estimated MoM velocity, and strong press traction with 44 articles including 6 tier-1 outlets. Score 80/100 — SIGN recommended for Premium Solutions.",
+  "reasoning": "Dua Lipa is currently signed to Warner Music Group and is not available for Believe to sign. Believe only works with independent artists.",
   "spotify_unavailable": false,
   "news_unavailable": false
 }
@@ -456,6 +456,27 @@ r-n-b, metal, bollywood, java-pop, punjabi, techno, house, alt-pop, pop, rap
 | 70–100 | SIGN | Full LangGraph research report generated |
 | 40–69 | WATCH | Slack alert to A&R manager |
 | 0–39 | PASS | Logged silently, no action |
+
+### Major label check
+
+Before scoring, the triage chain asks Claude whether the artist is currently
+signed to a major label (Universal Music Group, Sony Music Entertainment,
+or Warner Music Group) as their **primary** record label.
+
+If yes → score is forced to 0 and decision is PASS immediately.
+Believe only signs independent artists.
+
+**Important distinction**: Distribution deals do not count.
+Many independent artists distribute through major label networks
+(e.g. Rema via Mavin/Universal distribution) — this does NOT make them
+a major label artist. Only direct primary signings trigger PASS.
+
+| Artist | Label status | Decision |
+|--------|-------------|---------|
+| Fisher | Independent (Sweat It Out) | SIGN (score 74) |
+| Rema | Independent (Mavin Records) | WATCH (score 67) |
+| Dua Lipa | Warner Music Group (primary) | PASS (score 0) |
+| Gengahr | Independent (insufficient signals) | PASS (score 35) |
 
 ---
 
@@ -496,6 +517,25 @@ project3_autonomous_agent/
 ├── .gitignore                # Prevents secrets from being committed
 └── requirements.txt          # All Python dependencies
 ```
+
+---
+
+## Sample reports
+
+The  directory contains 4 real agent-generated reports
+demonstrating all decision types:
+
+| File | Artist | Genre | Decision | Reason |
+|------|--------|-------|---------|--------|
+|  +  | Fisher | Electronic | SIGN (74/100) | Independent artist, strong streaming + press |
+|  +  | Rema | Afrobeats | WATCH (67/100) | Borderline — good signals but below SIGN threshold |
+|  +  | Dua Lipa | Pop | PASS (0/100) | Signed to Warner Music Group — unavailable |
+|  +  | Gengahr | Indie | PASS (35/100) | Insufficient streaming and press signals |
+
+Each report is saved as both Markdown and PDF automatically.
+Reports include 9 sections: executive summary, artist overview,
+streaming analysis, press analysis, digital presence, roster comparison,
+risk factors, recommendation, and data sources.
 
 ---
 

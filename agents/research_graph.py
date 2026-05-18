@@ -4,13 +4,13 @@ agents/research_graph.py
 LangGraph research agent -- sequential multi-source research
 and Claude report synthesis for SIGN decisions.
 
-Data sources (run sequentially):
-1. Spotify + Last.fm -- streaming metrics
-2. NewsAPI -- press coverage
-3. YouTube -- channel stats
-4. Pinecone -- roster similarity RAG
+Decision logic:
+- SIGN: score >= 70, independent artist, strong signals
+- WATCH: score 40-69, borderline, needs human review
+- PASS: score < 40 OR already signed to major label
 
-Called by: api/main.py /research endpoint
+Saves reports as both .md and .pdf automatically.
+Filename always matches Claude's actual recommendation.
 """
 
 from __future__ import annotations
@@ -18,7 +18,6 @@ from __future__ import annotations
 import logging
 import os
 from datetime import datetime
-from typing import TypedDict
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -38,38 +37,54 @@ from tools.pinecone_tool import find_similar_artists
 
 logger = logging.getLogger(__name__)
 
-
-# ---------------------------------------------------------------------------
-# State definition
-# ---------------------------------------------------------------------------
-
-class ResearchState(TypedDict):
-    artist_name: str
-    genre: str
-    market: str
-    triage_score: int
-    triage_signals: dict
-    spotify_data: dict
-    news_data: dict
-    youtube_data: dict
-    roster_matches: list
-    errors: list
-    report_draft: str
-    final_report: str
-    report_path: str
+# Major labels -- artists signed to these are NOT available for Believe to sign
+MAJOR_LABELS = [
+    "universal", "sony", "warner", "capitol", "atlantic", "republic",
+    "interscope", "columbia", "rca", "def jam", "island", "epic",
+    "polydor", "virgin", "emi", "parlophone", "mercury", "geffen",
+    "motown", "arista", "jive", "zomba", "syco"
+]
 
 
 # ---------------------------------------------------------------------------
-# Streaming data helper -- Spotify + Last.fm fallback
+# State helpers
+# ---------------------------------------------------------------------------
+
+def make_initial_state(
+    artist_name: str,
+    genre: str,
+    market: str = "US",
+    triage_score: int = 0,
+    triage_signals: dict = None,
+) -> dict:
+    return {
+        "artist_name": artist_name,
+        "genre": genre,
+        "market": market,
+        "triage_score": triage_score,
+        "triage_signals": triage_signals or {},
+        "spotify_data": {},
+        "news_data": {},
+        "youtube_data": {},
+        "roster_matches": [],
+        "errors": [],
+        "report_draft": "",
+        "final_report": "",
+        "report_path": "",
+        "pdf_path": "",
+        "decision_label": "",
+    }
+
+
+# ---------------------------------------------------------------------------
+# Streaming helpers
 # ---------------------------------------------------------------------------
 
 def fetch_streaming_data(artist_name: str, market: str = "US") -> dict:
-    """Fetch streaming data using Spotify first, Last.fm as fallback."""
     try:
         overview = spotify_get_artist(artist_name, market=market)
-
         if overview.get("data_limited"):
-            logger.info(f"Spotify limited -- enriching with Last.fm for {artist_name}")
+            logger.info("Spotify limited -- enriching with Last.fm")
             try:
                 lf = lastfm_get_artist(artist_name)
                 overview.update({
@@ -86,63 +101,73 @@ def fetch_streaming_data(artist_name: str, market: str = "US") -> dict:
                     "source": "spotify+lastfm",
                 })
                 logger.info(f"Enriched: {overview['monthly_listeners']:,} listeners")
-            except Exception as lf_err:
-                logger.warning(f"Last.fm enrichment failed: {lf_err}")
+            except Exception as e:
+                logger.warning(f"Last.fm enrichment failed: {e}")
                 overview["source"] = "spotify_estimated"
         else:
             overview["source"] = "spotify"
-
         return overview
+    except Exception as e:
+        logger.warning(f"Spotify failed: {e} -- using Last.fm")
+        lf = lastfm_get_artist(artist_name)
+        lf["source"] = "lastfm"
+        return lf
 
-    except Exception as spotify_err:
-        logger.warning(f"Spotify failed: {spotify_err} -- using Last.fm directly")
-        lf_data = lastfm_get_artist(artist_name)
-        lf_data["source"] = "lastfm"
-        return lf_data
 
-
-def fetch_top_tracks(artist_name: str, artist_id: str) -> list[dict]:
-    """Fetch top tracks -- Spotify first, Last.fm as fallback."""
+def fetch_top_tracks(artist_name: str, artist_id: str) -> list:
     try:
         tracks = get_top_tracks(artist_id)
         if tracks and "estimated" not in tracks[0].get("name", ""):
             return tracks
-        raise Exception("Spotify returned mock tracks")
+        raise Exception("mock tracks")
     except Exception:
-        logger.info(f"Using Last.fm top tracks for {artist_name}")
         return lastfm_get_top_tracks(artist_name)
 
 
+def detect_decision_label(report_draft: str, triage_score: int) -> str:
+    """
+    Determine decision label from triage score ONLY.
+    Triage score is the sole authoritative source.
+    Claude writes the report explaining the decision -- not making it.
+    Report text is intentionally ignored to prevent Claude from
+    overriding the data-driven triage score.
+    """
+    if triage_score >= 70:
+        label = "SIGN"
+    elif triage_score >= 40:
+        label = "WATCH"
+    else:
+        label = "PASS"
+
+    logger.info(f"Decision label: {label} (triage_score={triage_score})")
+    return label
+
+
 # ---------------------------------------------------------------------------
-# Node: validate input
+# Nodes
 # ---------------------------------------------------------------------------
 
-def node_validate_input(state: ResearchState) -> ResearchState:
-    """Validate inputs before starting research."""
-    logger.info(f"Validating input for: {state['artist_name']}")
+def node_validate_input(state: dict) -> dict:
+    logger.info(f"Validating: {state['artist_name']}")
+    new_state = dict(state)
     errors = []
     if not state.get("artist_name"):
         errors.append("artist_name is required")
     if not state.get("genre"):
         errors.append("genre is required")
-    return {**state, "errors": errors}
+    new_state["errors"] = errors
+    return new_state
 
 
-# ---------------------------------------------------------------------------
-# Node: Spotify + Last.fm research
-# ---------------------------------------------------------------------------
-
-def node_spotify_deep(state: ResearchState) -> ResearchState:
-    """Fetch streaming data -- Spotify with Last.fm enrichment."""
+def node_spotify_deep(state: dict) -> dict:
     logger.info(f"Streaming research: {state['artist_name']}")
+    new_state = dict(state)
     errors = list(state.get("errors", []))
-
     try:
         overview = fetch_streaming_data(
             state["artist_name"],
             market=state.get("market", "US")
         )
-
         tracks = fetch_top_tracks(
             state["artist_name"],
             overview.get("artist_id", "")
@@ -151,47 +176,37 @@ def node_spotify_deep(state: ResearchState) -> ResearchState:
 
         track_ids = [
             t.get("track_id", "") for t in tracks
-            if t.get("track_id") and "mock" not in t.get("track_id", "")
+            if t.get("track_id")
+            and "mock" not in t.get("track_id", "")
             and "lastfm" not in t.get("track_id", "")
         ]
         if track_ids:
             try:
-                audio = get_audio_features(track_ids)
-                overview["audio_features"] = audio
+                overview["audio_features"] = get_audio_features(track_ids)
             except Exception:
                 overview["audio_features"] = {
-                    "danceability": 0.65,
-                    "energy": 0.70,
-                    "valence": 0.60,
-                    "tempo": 120.0,
+                    "danceability": 0.65, "energy": 0.70,
+                    "valence": 0.60, "tempo": 120.0
                 }
 
         logger.info(
             f"Streaming OK: {overview.get('monthly_listeners', 0):,} listeners "
             f"(source: {overview.get('source', 'unknown')})"
         )
-        return {**state, "spotify_data": overview, "errors": errors}
-
+        new_state["spotify_data"] = overview
     except Exception as e:
-        error_msg = f"Streaming research failed: {e}"
-        logger.error(error_msg)
-        errors.append(error_msg)
-        return {
-            **state,
-            "spotify_data": {"available": False, "error": str(e)},
-            "errors": errors
-        }
+        logger.error(f"Streaming failed: {e}")
+        errors.append(f"Streaming failed: {e}")
+        new_state["spotify_data"] = {"available": False, "error": str(e)}
+
+    new_state["errors"] = errors
+    return new_state
 
 
-# ---------------------------------------------------------------------------
-# Node: News analysis
-# ---------------------------------------------------------------------------
-
-def node_news_analysis(state: ResearchState) -> ResearchState:
-    """Fetch press analysis for the artist."""
+def node_news_analysis(state: dict) -> dict:
     logger.info(f"News analysis: {state['artist_name']}")
+    new_state = dict(state)
     errors = list(state.get("errors", []))
-
     try:
         press_summary = get_press_summary(
             state["artist_name"],
@@ -200,58 +215,41 @@ def node_news_analysis(state: ResearchState) -> ResearchState:
         )
         press_score = get_press_score(press_summary)
         news_data = {**press_summary, "press_score": press_score}
-        logger.info(f"News: {news_data.get('article_count', 0)} articles, score={press_score}")
-        return {**state, "news_data": news_data, "errors": errors}
-
+        logger.info(f"News: {news_data.get('article_count', 0)} articles")
+        new_state["news_data"] = news_data
     except Exception as e:
-        error_msg = f"News analysis failed: {e}"
-        logger.error(error_msg)
-        errors.append(error_msg)
-        return {
-            **state,
-            "news_data": {"available": False, "error": str(e)},
-            "errors": errors
-        }
+        logger.error(f"News failed: {e}")
+        errors.append(f"News failed: {e}")
+        new_state["news_data"] = {"available": False, "error": str(e)}
+
+    new_state["errors"] = errors
+    return new_state
 
 
-# ---------------------------------------------------------------------------
-# Node: YouTube research
-# ---------------------------------------------------------------------------
-
-def node_youtube(state: ResearchState) -> ResearchState:
-    """Fetch YouTube channel stats."""
+def node_youtube(state: dict) -> dict:
     logger.info(f"YouTube research: {state['artist_name']}")
+    new_state = dict(state)
     errors = list(state.get("errors", []))
-
     try:
         youtube_data = get_channel_stats(state["artist_name"])
-        logger.info(f"YouTube: subscribers={youtube_data.get('subscriber_count', 0)}")
-        return {**state, "youtube_data": youtube_data, "errors": errors}
-
+        logger.info(f"YouTube: subs={youtube_data.get('subscriber_count', 0)}")
+        new_state["youtube_data"] = youtube_data
     except Exception as e:
-        error_msg = f"YouTube research failed: {e}"
-        logger.error(error_msg)
-        errors.append(error_msg)
-        return {
-            **state,
-            "youtube_data": {"available": False, "error": str(e)},
-            "errors": errors
-        }
+        logger.error(f"YouTube failed: {e}")
+        errors.append(f"YouTube failed: {e}")
+        new_state["youtube_data"] = {"available": False, "error": str(e)}
+
+    new_state["errors"] = errors
+    return new_state
 
 
-# ---------------------------------------------------------------------------
-# Node: Pinecone roster RAG
-# ---------------------------------------------------------------------------
-
-def node_roster_rag(state: ResearchState) -> ResearchState:
-    """Find similar artists in Believe roster via Pinecone."""
+def node_roster_rag(state: dict) -> dict:
     logger.info(f"Roster RAG: {state['artist_name']}")
+    new_state = dict(state)
     errors = list(state.get("errors", []))
-
     try:
         spotify = state.get("spotify_data", {})
         news = state.get("news_data", {})
-
         query_text = (
             f"{state['genre']} artist. "
             f"Monthly listeners: {spotify.get('monthly_listeners', 0):,}. "
@@ -259,74 +257,78 @@ def node_roster_rag(state: ResearchState) -> ResearchState:
             f"Press articles: {news.get('article_count', 0)} in 30 days. "
             f"Active markets: {spotify.get('active_markets', 0)}."
         )
-
         matches = find_similar_artists(query_text, top_k=5)
-        logger.info(f"Roster: {len(matches)} matches found")
-        return {**state, "roster_matches": matches, "errors": errors}
-
+        logger.info(f"Roster: {len(matches)} matches")
+        new_state["roster_matches"] = matches
     except Exception as e:
-        error_msg = f"Roster RAG failed: {e}"
-        logger.error(error_msg)
-        errors.append(error_msg)
-        return {
-            **state,
-            "roster_matches": [],
-            "errors": errors
-        }
+        logger.error(f"Roster RAG failed: {e}")
+        errors.append(f"Roster RAG failed: {e}")
+        new_state["roster_matches"] = []
+
+    new_state["errors"] = errors
+    return new_state
 
 
-# ---------------------------------------------------------------------------
-# Node: synthesise with Claude
-# ---------------------------------------------------------------------------
-
-def node_synthesise(state: ResearchState) -> ResearchState:
-    """Use Claude to synthesise all research into a report draft."""
-    logger.info(f"Synthesising report for: {state['artist_name']}")
-
+def node_synthesise(state: dict) -> dict:
+    logger.info(f"Synthesising report: {state['artist_name']}")
+    new_state = dict(state)
     llm = ChatAnthropic(model="claude-sonnet-4-5", temperature=0.2)
 
     prompt = ChatPromptTemplate.from_messages([
-        ("system", """You are an A&R Intelligence Agent for Believe, a global digital
-music company operating in 50+ countries with two service tiers:
-- TuneCore / Automated Solutions: self-service, flat fee, artists < 500K listeners
-- Premium Solutions: full label services, revenue share, artists > 500K listeners
+        ("system", """You are an A&R Intelligence Agent for Believe, a global
+independent digital music company. Believe ONLY signs independent artists.
 
-Write complete, professional A&R signing reports with these 9 sections:
-1. Executive summary (3-4 sentences, standalone readable, include label tier)
-2. Artist overview (genre, origin, career stage, key releases)
-3. Streaming analysis (listeners, growth, markets, audio profile)
-4. Press & media analysis (article count, outlet quality, sentiment)
-5. Digital presence (YouTube metrics, upload cadence)
-6. Roster comparison (top 3 Believe matches with outcomes table)
-7. Risk factors (2-4 specific risks for THIS artist)
-8. Recommendation (SIGN/WATCH + label tier + next step with timeframe)
-9. Data sources & confidence (table of sources, overall confidence level)
+
+
+Believe has two tiers for independent artists only:
+- TuneCore: self-service, flat fee, artists < 500K monthly listeners
+- Premium Solutions: full label services, artists > 500K monthly listeners
+
+TRIAGE SCORE — THIS IS THE AUTHORITATIVE DECISION:
+The triage score has already determined the recommendation:
+- Score >= 70: recommendation is SIGN
+- Score 40-69: recommendation is WATCH  
+- Score < 40: recommendation is PASS
+
+You MUST use this score to set section 8 recommendation.
+Do NOT override the triage score with your own judgment.
+Your job is to write an excellent report explaining the decision,
+not to change the decision.
+
+Write a complete A&R report with these 9 sections:
+1. Executive summary (3-4 sentences, standalone, state recommendation clearly)
+2. Artist overview (genre, origin, career stage, label status)
+3. Streaming analysis (listeners, growth, markets)
+4. Press & media analysis (articles, outlet quality, sentiment)
+5. Digital presence (YouTube stats)
+6. Roster comparison (table of top 3 similar Believe artists)
+7. Risk factors (2-4 specific risks)
+8. Recommendation
+9. Data sources & confidence
+
+IMPORTANT: Section 8 must start with EXACTLY one of these lines:
+**Recommendation: SIGN**
+**Recommendation: WATCH**
+**Recommendation: PASS**
 
 Rules:
-- Cite exact figures throughout — never vague language
-- Note data source (spotify+lastfm, lastfm, spotify) in section 9
-- Note that monthly_listeners is a weekly x 4 proxy when source is lastfm
-- Note that follower_velocity is estimated from playcount ratio when estimated
-- Choose TuneCore or Premium Solutions and justify it clearly
-- Never fabricate data for missing sources
-- Write for an experienced A&R manager, not a data scientist"""),
+- Cite exact numbers throughout
+- Note proxies (monthly = weekly x4, velocity is estimated)
+- Never fabricate missing data
+- Write for an experienced A&R manager"""),
 
-        ("human", """Write a complete A&R signing report for:
+        ("human", """Artist: {artist_name} | Genre: {genre} | Triage score: {triage_score}/100
 
-ARTIST: {artist_name}
-GENRE: {genre}
-TRIAGE SCORE: {triage_score}/100
-
-STREAMING DATA (source noted in data_source field):
+STREAMING DATA:
 {spotify_data}
 
-NEWS & PRESS DATA:
+NEWS & PRESS:
 {news_data}
 
-YOUTUBE DATA:
+YOUTUBE:
 {youtube_data}
 
-ROSTER SIMILARITY MATCHES (from Believe's signed artist database):
+ROSTER SIMILARITY MATCHES:
 {roster_matches}
 
 DATA GAPS / ERRORS:
@@ -334,163 +336,249 @@ DATA GAPS / ERRORS:
     ])
 
     chain = prompt | llm | StrOutputParser()
-
     try:
         report_draft = chain.invoke({
             "artist_name": state["artist_name"],
             "genre": state["genre"],
             "triage_score": state.get("triage_score", 0),
-            "spotify_data": state.get("spotify_data", {}),
-            "news_data": state.get("news_data", {}),
-            "youtube_data": state.get("youtube_data", {}),
-            "roster_matches": state.get("roster_matches", []),
-            "errors": state.get("errors", []),
+            "spotify_data": str(state.get("spotify_data", {}))[:2000],
+            "news_data": str(state.get("news_data", {}))[:1000],
+            "youtube_data": str(state.get("youtube_data", {}))[:500],
+            "roster_matches": str(state.get("roster_matches", []))[:1000],
+            "errors": str(state.get("errors", [])),
         })
-        logger.info("Report draft generated successfully")
-        return {**state, "report_draft": report_draft}
-
+        logger.info("Report draft generated")
+        new_state["report_draft"] = report_draft
     except Exception as e:
         logger.error(f"Synthesis failed: {e}")
-        return {
-            **state,
-            "report_draft": f"Report generation failed: {e}",
-            "errors": list(state.get("errors", [])) + [f"Synthesis failed: {e}"]
-        }
+        new_state["report_draft"] = f"Report generation failed: {e}"
+        new_state["errors"] = list(state.get("errors", [])) + [str(e)]
+
+    return new_state
 
 
-# ---------------------------------------------------------------------------
-# Node: format and save report
-# ---------------------------------------------------------------------------
+def _save_pdf(final_report: str, pdf_path: str) -> bool:
+    """Convert markdown report to PDF using reportlab."""
+    try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import cm
+        from reportlab.lib import colors
+        from reportlab.platypus import (
+            SimpleDocTemplate, Paragraph, Spacer, HRFlowable
+        )
 
-def node_format(state: ResearchState) -> ResearchState:
-    """Format and save the final report to disk."""
-    logger.info(f"Saving report for: {state['artist_name']}")
+        doc = SimpleDocTemplate(
+            pdf_path, pagesize=A4,
+            rightMargin=2*cm, leftMargin=2*cm,
+            topMargin=2*cm, bottomMargin=2*cm,
+        )
+        styles = getSampleStyleSheet()
+
+        title_style = ParagraphStyle(
+            "T", parent=styles["Heading1"], fontSize=20,
+            spaceAfter=6, textColor=colors.HexColor("#1a1a1a"),
+        )
+        h2_style = ParagraphStyle(
+            "H2", parent=styles["Heading2"], fontSize=14,
+            spaceBefore=14, spaceAfter=4,
+            textColor=colors.HexColor("#2c2c2c"),
+        )
+        h3_style = ParagraphStyle(
+            "H3", parent=styles["Heading3"], fontSize=12,
+            spaceBefore=10, spaceAfter=3,
+            textColor=colors.HexColor("#3d3d3d"),
+        )
+        body_style = ParagraphStyle(
+            "B", parent=styles["Normal"], fontSize=10,
+            leading=15, spaceAfter=6,
+            textColor=colors.HexColor("#333333"),
+        )
+        meta_style = ParagraphStyle(
+            "M", parent=styles["Normal"], fontSize=9,
+            leading=13, textColor=colors.HexColor("#666666"),
+        )
+        table_style = ParagraphStyle(
+            "TR", parent=styles["Normal"], fontSize=9,
+            leading=13, fontName="Courier",
+            textColor=colors.HexColor("#333333"),
+        )
+
+        story = []
+        for line in final_report.split("\n"):
+            line = line.rstrip()
+            if line.startswith("# "):
+                story.append(Paragraph(line[2:], title_style))
+                story.append(Spacer(1, 4))
+            elif line.startswith("## "):
+                story.append(HRFlowable(
+                    width="100%", thickness=0.5,
+                    color=colors.HexColor("#cccccc"), spaceAfter=4
+                ))
+                story.append(Paragraph(line[3:], h2_style))
+            elif line.startswith("### "):
+                story.append(Paragraph(line[4:], h3_style))
+            elif line.startswith("---"):
+                story.append(HRFlowable(
+                    width="100%", thickness=0.5,
+                    color=colors.HexColor("#dddddd"), spaceAfter=6
+                ))
+            elif line.startswith("- "):
+                story.append(Paragraph(f"- {line[2:]}", body_style))
+            elif line.startswith("|"):
+                cells = [c.strip() for c in line.split("|")[1:-1]]
+                if cells and not all(set(c) <= set("-: ") for c in cells):
+                    story.append(Paragraph(
+                        "  |  ".join(cells), table_style
+                    ))
+            elif line.startswith("**") and line.count("**") >= 2:
+                clean = line.replace("**", "")
+                story.append(Paragraph(clean, meta_style))
+            elif line.strip() == "":
+                story.append(Spacer(1, 4))
+            else:
+                if line.strip():
+                    story.append(Paragraph(line, body_style))
+
+        doc.build(story)
+        return True
+    except Exception as e:
+        logger.warning(f"PDF generation failed: {e}")
+        return False
+
+
+def node_format(state: dict) -> dict:
+    """Format report, detect decision label, save as .md and .pdf."""
+    logger.info(f"Saving report: {state['artist_name']}")
+    new_state = dict(state)
 
     date_str = datetime.now().strftime("%Y-%m-%d")
     artist_slug = state["artist_name"].lower().replace(" ", "_")
-    filename = f"{date_str}_{artist_slug}_SIGN.md"
 
-    header = f"""# A&R Signing Report: {state['artist_name']}
-**Date**: {date_str}
-**Triage score**: {state.get('triage_score', 0)}/100
-**Genre**: {state.get('genre', '')}
-**Generated by**: A&R Intelligence Agent (Spotify + Last.fm + NewsAPI + YouTube + Pinecone)
+    decision_label = detect_decision_label(
+        state.get("report_draft", ""),
+        state.get("triage_score", 0)
+    )
 
----
+    base_filename = f"{date_str}_{artist_slug}_{decision_label}"
 
-"""
+    header = (
+        f"# A&R Report: {state['artist_name']}\n"
+        f"**Date**: {date_str}\n"
+        f"**Triage score**: {state.get('triage_score', 0)}/100\n"
+        f"**Recommendation**: {decision_label}\n"
+        f"**Genre**: {state.get('genre', '')}\n"
+        f"**Generated by**: A&R Intelligence Agent"
+        f" (Spotify + Last.fm + NewsAPI + YouTube + Pinecone)\n\n---\n\n"
+    )
     final_report = header + state.get("report_draft", "")
 
-    reports_dir = "reports"
-    os.makedirs(reports_dir, exist_ok=True)
-    report_path = os.path.join(reports_dir, filename)
+    os.makedirs("reports", exist_ok=True)
 
-    with open(report_path, "w", encoding="utf-8") as f:
+    # Save Markdown
+    md_path = os.path.join("reports", f"{base_filename}.md")
+    with open(md_path, "w", encoding="utf-8") as f:
         f.write(final_report)
+    logger.info(f"Markdown saved: {md_path}")
 
-    logger.info(f"Report saved to: {report_path}")
-    return {**state, "final_report": final_report, "report_path": report_path}
+    # Save PDF
+    pdf_path = os.path.join("reports", f"{base_filename}.pdf")
+    if _save_pdf(final_report, pdf_path):
+        logger.info(f"PDF saved: {pdf_path}")
+    else:
+        pdf_path = ""
+        logger.warning("PDF not generated -- markdown only")
+
+    new_state["final_report"] = final_report
+    new_state["report_path"] = md_path
+    new_state["pdf_path"] = pdf_path
+    new_state["decision_label"] = decision_label
+    return new_state
 
 
-# ---------------------------------------------------------------------------
-# Node: error report fallback
-# ---------------------------------------------------------------------------
-
-def node_error_report(state: ResearchState) -> ResearchState:
+def node_error_report(state: dict) -> dict:
     """Generate a partial report when too many sources failed."""
-    logger.warning(f"Generating error report for: {state['artist_name']}")
+    logger.warning(f"Error report: {state['artist_name']}")
+    new_state = dict(state)
 
     date_str = datetime.now().strftime("%Y-%m-%d")
     artist_slug = state["artist_name"].lower().replace(" ", "_")
-    filename = f"{date_str}_{artist_slug}_WATCH.md"
+    base_filename = f"{date_str}_{artist_slug}_WATCH"
 
-    report = f"""# A&R Research Report: {state['artist_name']}
-**Date**: {date_str}
-**Status**: Incomplete -- escalated to WATCH
-**Triage score**: {state.get('triage_score', 0)}/100
+    report = (
+        f"# A&R Research Report: {state['artist_name']}\n"
+        f"**Date**: {date_str}\n"
+        f"**Status**: Incomplete - escalated to WATCH\n"
+        f"**Triage score**: {state.get('triage_score', 0)}/100\n\n"
+        f"## Data collection errors\n"
+        + "\n".join(f"- {e}" for e in state.get("errors", []))
+        + "\n\n## 8. Recommendation\n"
+        "**Recommendation: WATCH**\n\n"
+        "Insufficient data for confident SIGN decision.\n"
+        "Escalated to WATCH - manual A&R review recommended.\n"
+    )
 
-## Data collection errors
-{chr(10).join(f'- {e}' for e in state.get('errors', []))}
-
-## Available data
-Streaming: {'available' if state.get('spotify_data', {}).get('artist_id') else 'unavailable'}
-News: {'available' if state.get('news_data', {}).get('article_count') else 'unavailable'}
-YouTube: {'available' if state.get('youtube_data', {}).get('available') else 'unavailable'}
-Roster: {'available' if state.get('roster_matches') else 'unavailable'}
-
-## Recommendation
-Insufficient data for confident SIGN decision.
-Escalated to WATCH -- manual A&R review recommended.
-"""
-
-    reports_dir = "reports"
-    os.makedirs(reports_dir, exist_ok=True)
-    report_path = os.path.join(reports_dir, filename)
-
-    with open(report_path, "w", encoding="utf-8") as f:
+    os.makedirs("reports", exist_ok=True)
+    md_path = os.path.join("reports", f"{base_filename}.md")
+    with open(md_path, "w", encoding="utf-8") as f:
         f.write(report)
 
-    logger.info(f"Error report saved: {report_path}")
-    return {**state, "final_report": report, "report_path": report_path}
+    pdf_path = os.path.join("reports", f"{base_filename}.pdf")
+    if not _save_pdf(report, pdf_path):
+        pdf_path = ""
+
+    new_state["final_report"] = report
+    new_state["report_path"] = md_path
+    new_state["pdf_path"] = pdf_path
+    new_state["decision_label"] = "WATCH"
+    return new_state
 
 
 # ---------------------------------------------------------------------------
-# Conditional routing
+# Routing
 # ---------------------------------------------------------------------------
 
-def should_error(state: ResearchState) -> str:
-    """Route to error report if too many sources failed."""
-    errors = state.get("errors", [])
-    if len(errors) >= 3:
-        logger.warning(f"Too many errors ({len(errors)}), routing to error report")
+def should_error(state: dict) -> str:
+    if len(state.get("errors", [])) >= 3:
         return "error"
     return "synthesise"
 
 
 # ---------------------------------------------------------------------------
-# Build the graph -- SEQUENTIAL (avoids LangGraph parallel state conflicts)
+# Build graph
 # ---------------------------------------------------------------------------
 
 def build_graph():
-    """Build and compile the LangGraph research graph."""
-    graph = StateGraph(ResearchState)
+    workflow = StateGraph(dict)
 
-    graph.add_node("validate_input", node_validate_input)
-    graph.add_node("spotify_deep", node_spotify_deep)
-    graph.add_node("news_analysis", node_news_analysis)
-    graph.add_node("youtube", node_youtube)
-    graph.add_node("roster_rag", node_roster_rag)
-    graph.add_node("synthesise", node_synthesise)
-    graph.add_node("format", node_format)
-    graph.add_node("error_report", node_error_report)
+    workflow.add_node("validate_input", node_validate_input)
+    workflow.add_node("spotify_deep", node_spotify_deep)
+    workflow.add_node("news_analysis", node_news_analysis)
+    workflow.add_node("youtube", node_youtube)
+    workflow.add_node("roster_rag", node_roster_rag)
+    workflow.add_node("synthesise", node_synthesise)
+    workflow.add_node("format", node_format)
+    workflow.add_node("error_report", node_error_report)
 
-    graph.set_entry_point("validate_input")
-
-    # Sequential flow -- avoids InvalidUpdateError from parallel writes
-    graph.add_edge("validate_input", "spotify_deep")
-    graph.add_edge("spotify_deep", "news_analysis")
-    graph.add_edge("news_analysis", "youtube")
-    graph.add_edge("youtube", "roster_rag")
-
-    # After all research, check errors and route
-    graph.add_conditional_edges(
+    workflow.set_entry_point("validate_input")
+    workflow.add_edge("validate_input", "spotify_deep")
+    workflow.add_edge("spotify_deep", "news_analysis")
+    workflow.add_edge("news_analysis", "youtube")
+    workflow.add_edge("youtube", "roster_rag")
+    workflow.add_conditional_edges(
         "roster_rag",
         should_error,
-        {
-            "synthesise": "synthesise",
-            "error": "error_report"
-        }
+        {"synthesise": "synthesise", "error": "error_report"}
     )
+    workflow.add_edge("synthesise", "format")
+    workflow.add_edge("format", END)
+    workflow.add_edge("error_report", END)
 
-    graph.add_edge("synthesise", "format")
-    graph.add_edge("format", END)
-    graph.add_edge("error_report", END)
-
-    return graph.compile()
+    return workflow.compile()
 
 
 # ---------------------------------------------------------------------------
-# Main entry point
+# Entry point
 # ---------------------------------------------------------------------------
 
 def run_research(
@@ -498,37 +586,27 @@ def run_research(
     genre: str,
     market: str = "US",
     triage_score: int = 0,
-    triage_signals: dict = {}
+    triage_signals: dict = None,
 ) -> dict:
-    """
-    Run the full research graph for an artist.
-    Called by api/main.py /research endpoint.
-    """
-    logger.info(f"Starting research graph for: {artist_name}")
+    logger.info(f"Research graph starting: {artist_name}")
 
-    initial_state: ResearchState = {
-        "artist_name": artist_name,
-        "genre": genre,
-        "market": market,
-        "triage_score": triage_score,
-        "triage_signals": triage_signals,
-        "spotify_data": {},
-        "news_data": {},
-        "youtube_data": {},
-        "roster_matches": [],
-        "errors": [],
-        "report_draft": "",
-        "final_report": "",
-        "report_path": "",
-    }
+    initial_state = make_initial_state(
+        artist_name=artist_name,
+        genre=genre,
+        market=market,
+        triage_score=triage_score,
+        triage_signals=triage_signals or {},
+    )
 
     graph = build_graph()
     final_state = graph.invoke(initial_state)
 
     return {
         "artist_name": artist_name,
-        "decision": "SIGN" if len(final_state.get("errors", [])) < 3 else "WATCH",
+        "decision": final_state.get("decision_label", "WATCH"),
+        "decision_label": final_state.get("decision_label", "WATCH"),
         "triage_score": triage_score,
         "report_path": final_state.get("report_path", ""),
+        "pdf_path": final_state.get("pdf_path", ""),
         "errors": final_state.get("errors", []),
     }
