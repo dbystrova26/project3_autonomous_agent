@@ -1,7 +1,7 @@
 # A&R Artist Intelligence Agent
 **Autonomous artist research & signing recommendation system for Believe**
 
-Built by: Daria Bystrova | Ironhack Data Analytics Bootcamp | Project 3
+Built by: Daria Bystrova | Ironhack AI Consulting Bootcamp | Project 3
 
 ---
 
