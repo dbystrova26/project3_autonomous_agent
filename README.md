@@ -100,11 +100,11 @@ Last.fm is free with no restrictions. When Spotify returns limited dev mode data
 | Similar artists | `artist.getsimilar` | ✓ Always available |
 | Weekly unique listeners | `artist.getinfo` | ✓ Always available — last 7 days |
 | Monthly listeners (proxy) | Calculated: weekly × 4 | ✓ Estimated — see proxy section below |
-| Follower velocity (MoM %) | Not available | ✗ No historical trend data |
+| Follower velocity (MoM %) | Estimated via playcount proxy | ✓ Directional estimate — see velocity proxy section |
 
 **Listener period note**: Last.fm exposes weekly unique listeners (last 7 days), not monthly. We convert weekly to a monthly proxy using weekly × 4. See the Monthly Listeners Proxy section below for full explanation.
 
-**Velocity limitation**: Last.fm does not provide month-over-month growth trends. This means `follower_velocity_pct` is always 0.0, which costs up to 25 pts in scoring.
+**Velocity note**: Last.fm does not expose historical weekly snapshots, so real MoM growth cannot be measured directly. We use a playcount momentum proxy to estimate velocity. See the Velocity Proxy section below.
 
 
 ---
@@ -144,6 +144,59 @@ For established artists, weekly listener counts are stable week-to-week. A 4× m
 | Last.fm weekly × 4 | What we use now | Consistent proxy, underestimates absolute | Free |
 
 **Key point for scoring**: Our thresholds were calibrated against the weekly × 4 proxy. A score of 78/100 for Dua Lipa correctly identifies her as a SIGN candidate even though the absolute listener number differs from Spotify. The ranking logic works correctly.
+
+
+---
+
+### Velocity proxy — how we estimate month-over-month growth
+
+Last.fm's API only returns the **current week's** listener count — there are no historical snapshots available. You cannot ask "how many listeners did this artist have 4 weeks ago." This means real MoM growth cannot be directly calculated.
+
+We estimate velocity using the **playcount-to-listeners ratio** as a momentum signal:
+
+```
+ratio = total_playcount / weekly_listeners
+```
+
+**The logic:**
+
+A new or viral artist has many recent listeners but few total plays — they were just discovered, so plays haven't accumulated yet. This produces a **low ratio** and signals high growth.
+
+An established artist has deep loyal fans who have played their music thousands of times — high total plays relative to listeners. This produces a **high ratio** and signals slower growth (steady, not breakout).
+
+**Ratio → estimated velocity table:**
+
+| Ratio | Artist type | Estimated MoM velocity |
+|-------|------------|----------------------|
+| < 5 | Brand new or going viral | 35% |
+| 5–10 | New, growing fast | 25% |
+| 10–20 | Strong growth phase | 18% |
+| 20–50 | Developing, healthy growth | 12% |
+| 50–100 | Established, moderate growth | 7% |
+| 100–200 | Well established, slower growth | 4% |
+| 200+ | Legacy / catalogue artist | 1.5% |
+
+**Real examples from our tests:**
+
+| Artist | Weekly listeners | Playcount | Ratio | Estimated velocity | Decision |
+|--------|----------------|-----------|-------|-------------------|---------|
+| Dua Lipa | 3,303,823 | 322,064,347 | 97.5 | 7% | SIGN (80/100) |
+| Rema | 985,597 | 21,013,671 | 21.3 | 12% | WATCH (67/100) |
+
+Rema's ratio of 21.3 correctly identifies him as a developing artist in a strong growth phase. Dua Lipa's ratio of 97.5 correctly identifies her as an established artist with steady but not explosive growth.
+
+**Is this accurate?**
+The proxy is directionally correct — it correctly ranks new artists as higher velocity than established ones. It is not a precise measurement. All velocity values are stored with `velocity_estimated: True` so reports are transparent about this.
+
+**Alternatives for real velocity data:**
+
+| Option | How | Accuracy |
+|--------|-----|---------|
+| Spotify Extended Quota | Real follower count snapshots over time | High |
+| Chartmetric API | Weekly listener trend data from all DSPs | Very high |
+| Soundcharts API | Similar to Chartmetric | Very high |
+| Believe internal platform | Direct DSP partnerships, daily data | Perfect |
+| Last.fm playcount proxy | What we use now | Directional only |
 
 ### How they work together
 
@@ -203,7 +256,7 @@ Spotify announced major API restrictions in February 2026 to protect artist data
 - No monthly listener data (this was never in the API anyway)
 
 ### Why this matters for A&R
-Without Spotify popularity and follower data, our scoring model loses up to 30 pts (listeners dimension) and 25 pts (velocity dimension) — potentially 55 pts of the 100 pt score. This is why velocity data is the key missing signal — with real Spotify MoM growth data, scores would be 10-25 pts higher. Dua Lipa currently scores 78/100 using Last.fm weekly×4 proxy for listeners.
+With Spotify dev mode restrictions, our agent now uses two proxies: Last.fm weekly×4 for listeners and playcount momentum for velocity. Dua Lipa currently scores ~80/100 using both proxies. With real Spotify Extended Quota data, scores would be even more accurate but the directional decisions are already correct.
 
 ### How we handle it now
 1. Spotify provides the artist ID (search always works)
@@ -235,7 +288,7 @@ Third-party music analytics platforms aggregate data from all DSPs including Spo
 | Limitation | Impact | Workaround used | Real solution |
 |-----------|--------|----------------|---------------|
 | Spotify dev mode | No follower/popularity/velocity | Last.fm weekly×4 proxy | Extended Quota, Chartmetric, or Believe internal |
-| No MoM velocity | Missing 25 pts in score | Velocity = 0 (conservative) | Chartmetric API or Believe internal |
+| No real MoM velocity | Proxy estimate only | Playcount/listener ratio proxy | Chartmetric API, Spotify Extended Quota, or Believe internal |
 | NewsAPI free tier | 100 req/day, headlines only | 24h cache per artist | NewsAPI Developer plan |
 | Pinecone mock data | 25 simulated profiles, not real | Realistic simulated data | Believe internal roster database |
 | YouTube free tier | 10K units/day | Sufficient for development | YouTube Partner API |
@@ -362,8 +415,8 @@ Report saved to `reports/` as a Markdown file.
 ```json
 {
   "artist_name": "Dua Lipa",
-  "score": 68,
-  "decision": "WATCH",
+  "score": 80,
+  "decision": "SIGN",
   "signals": {
     "monthly_listeners": 3303823,
     "listeners": 3303823,
@@ -374,7 +427,7 @@ Report saved to `reports/` as a Markdown file.
     "genres": ["pop", "synthpop", "electropop"],
     "data_source": "spotify+lastfm"
   },
-  "reasoning": "Dua Lipa has 3.3M listeners and strong press traction with 44 articles including 6 tier-1 outlets. Score is 68 due to missing velocity data — with real Spotify MoM growth data this would score 85+ and trigger SIGN.",
+  "reasoning": "Dua Lipa has 13.2M monthly proxy listeners (3.3M weekly × 4), 7% estimated MoM velocity, and strong press traction with 44 articles including 6 tier-1 outlets. Score 80/100 — SIGN recommended for Premium Solutions.",
   "spotify_unavailable": false,
   "news_unavailable": false
 }
@@ -393,7 +446,7 @@ r-n-b, metal, bollywood, java-pop, punjabi, techno, house, alt-pop, pop, rap
 | Dimension | Weight | Source | Signal |
 |-----------|--------|--------|--------|
 | Monthly listeners | 30 pts | Last.fm (via Spotify+Last.fm) | Absolute audience size |
-| Follower velocity | 25 pts | Spotify only (0 in dev mode) | Month-over-month growth |
+| Follower velocity | 25 pts | Playcount proxy (Last.fm) | Estimated MoM growth |
 | Press coverage | 25 pts | NewsAPI | Tier-1/2 outlet count + recency |
 | Market diversity | 10 pts | Derived from popularity | Number of active countries |
 | Genre fit | 10 pts | Last.fm tags | Matches Believe priority genres |

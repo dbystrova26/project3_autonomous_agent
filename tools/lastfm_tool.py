@@ -2,25 +2,25 @@
 tools/lastfm_tool.py
 
 Last.fm API wrapper for artist research.
-Replaces Spotify as the primary streaming metrics source.
-
 Free API -- no restrictions, no Premium account needed.
-API key only -- no secret required for read operations.
 
-What we fetch:
-- Weekly listener counts (used directly as primary metric)
-- Total play count (career reach signal)
-- Artist tags / genres
-- Similar artists
-- Top tracks with play counts
+## Velocity proxy methodology
 
-Note on listeners vs monthly listeners:
-Last.fm exposes weekly unique listeners via artist.getinfo stats.listeners
-This is BETTER than a monthly estimate because:
-- It reflects current momentum (last 7 days)
-- It is a real measured number, not an estimate
-- Weekly listeners * ~4 gives a reasonable monthly proxy
-- We use weekly listeners directly in scoring for accuracy
+Last.fm does not expose historical weekly listener snapshots.
+artist.getinfo returns only the CURRENT week's listeners.
+
+We estimate velocity using playcount momentum:
+- playcount / listeners = average plays per listener (engagement ratio)
+- High ratio (>50) = deep, loyal fanbase -- established artist
+- Low ratio (<10) = recently discovered -- new/viral artist growing fast
+- We map this ratio to an estimated MoM velocity percentage
+
+This is a proxy, not a real measurement. It is directionally correct:
+- New viral artists have low playcount/listener ratios and high velocity
+- Established artists have high ratios and lower velocity
+- The proxy is stored as velocity_estimated: True in all responses
+
+For real velocity data use: Spotify Extended Quota, Chartmetric, or Soundcharts.
 """
 
 from __future__ import annotations
@@ -61,32 +61,86 @@ def _call_api(method: str, params: dict) -> dict:
     return data
 
 
+def _estimate_velocity(weekly_listeners: int, playcount: int) -> float:
+    """
+    Estimate month-over-month listener growth % from playcount momentum.
+
+    Since Last.fm only provides current-week listeners (no historical snapshots),
+    we use the playcount-to-listeners ratio as a momentum proxy:
+
+    ratio = total_playcount / weekly_listeners
+
+    Interpretation:
+    - Low ratio (< 10):  Artist is new or going viral -- listeners recently
+                         discovered them, haven't had time to accumulate plays.
+                         Estimated velocity: HIGH (20-40% MoM)
+
+    - Mid ratio (10-50): Developing artist with growing fanbase.
+                         Estimated velocity: MEDIUM (8-20% MoM)
+
+    - High ratio (50-200): Established artist with loyal deep listeners.
+                           Steady growth, not a breakout moment.
+                           Estimated velocity: LOW-MID (3-10% MoM)
+
+    - Very high (200+):  Legacy artist, catalogue listeners.
+                         Low new discovery rate.
+                         Estimated velocity: LOW (1-3% MoM)
+
+    This is a directional estimate, not a precise measurement.
+    Always stored with velocity_estimated: True.
+
+    Returns:
+        float -- estimated MoM growth percentage (0.0 to 40.0)
+    """
+    if weekly_listeners == 0:
+        return 0.0
+
+    ratio = playcount / weekly_listeners
+
+    if ratio < 5:
+        # Brand new or going viral -- very few plays per listener
+        velocity = 35.0
+    elif ratio < 10:
+        # New and growing fast
+        velocity = 25.0
+    elif ratio < 20:
+        # Strong growth phase
+        velocity = 18.0
+    elif ratio < 50:
+        # Developing artist, healthy growth
+        velocity = 12.0
+    elif ratio < 100:
+        # Established, moderate growth
+        velocity = 7.0
+    elif ratio < 200:
+        # Well established, slower growth
+        velocity = 4.0
+    else:
+        # Legacy artist, catalogue listeners
+        velocity = 1.5
+
+    logger.info(
+        f"Velocity proxy: playcount/listeners ratio={ratio:.1f} "
+        f"→ estimated MoM velocity={velocity}%"
+    )
+
+    return velocity
+
+
 @retry_with_backoff(max_retries=3, base_delay=1.0)
 def get_artist_overview(artist_name: str, market: str = "US") -> dict:
     """
     Fetch core artist metrics for triage scoring.
 
-    Last.fm stats.listeners = weekly unique listeners (last 7 days).
-    This is a real measured number -- more accurate than a monthly estimate.
+    Listener data:
+    - stats.listeners = weekly unique listeners (last 7 days) -- REAL data
+    - monthly_listeners = weekly * 4 -- PROXY
 
-    We use weekly listeners directly as our primary audience signal and
-    also calculate a monthly_listeners proxy (weekly * 4) for compatibility
-    with the scoring system which expects monthly_listeners.
+    Velocity data:
+    - follower_velocity_pct = estimated from playcount/listener ratio -- PROXY
+    - velocity_estimated = True always (no real MoM data available)
 
-    Returns:
-        {
-            artist_name: str,
-            weekly_listeners: int,   -- real Last.fm weekly unique listeners
-            monthly_listeners: int,  -- weekly * 4 (proxy for scoring)
-            playcount: int,          -- total career plays
-            followers: int,          -- same as weekly_listeners
-            follower_velocity_pct: float,
-            active_markets: int,
-            genres: list[str],
-            popularity: int,         -- 0-100 derived from weekly listeners
-            velocity_estimated: bool,
-            data_limited: bool,
-        }
+    Returns full dict compatible with triage_chain scoring.
     """
     data = _call_api("artist.getinfo", {
         "artist": artist_name,
@@ -96,26 +150,23 @@ def get_artist_overview(artist_name: str, market: str = "US") -> dict:
     artist = data.get("artist", {})
     stats = artist.get("stats", {})
 
-    # stats.listeners = weekly unique listeners on Last.fm
+    # Real data from Last.fm
     weekly_listeners = int(stats.get("listeners", 0))
     playcount = int(stats.get("playcount", 0))
 
     # Monthly proxy: weekly * 4
-    # This is a reasonable approximation since weekly listeners
-    # tend to be consistent week-over-week for established artists
     monthly_listeners = weekly_listeners * 4
 
-    # Extract tags as genres
+    # Velocity proxy: estimated from playcount momentum
+    velocity_pct = _estimate_velocity(weekly_listeners, playcount)
+
+    # Genre tags
     tags_data = artist.get("tags", {}).get("tag", [])
     if isinstance(tags_data, dict):
         tags_data = [tags_data]
     genres = [tag["name"] for tag in tags_data[:5]]
 
-    # Popularity score 0-100 from weekly listener count
-    # Scale calibrated to real artist data:
-    # Dua Lipa = ~3.3M weekly -> 100
-    # Mid-tier artist = ~500K weekly -> 55
-    # Emerging artist = ~50K weekly -> 15
+    # Popularity 0-100 from weekly listeners
     if weekly_listeners >= 3_000_000:
         popularity = 100
     elif weekly_listeners >= 2_000_000:
@@ -135,15 +186,14 @@ def get_artist_overview(artist_name: str, market: str = "US") -> dict:
     else:
         popularity = 3
 
-    # Active markets estimated from popularity
-    # No geo data in Last.fm free tier
     active_markets = max(1, popularity // 10)
 
     logger.info(
         f"Last.fm: {artist_name} -- "
-        f"weekly_listeners={weekly_listeners:,}, "
+        f"weekly={weekly_listeners:,}, "
         f"monthly_proxy={monthly_listeners:,}, "
         f"playcount={playcount:,}, "
+        f"velocity_proxy={velocity_pct}%, "
         f"genres={genres[:2]}"
     )
 
@@ -155,11 +205,11 @@ def get_artist_overview(artist_name: str, market: str = "US") -> dict:
         "listeners": weekly_listeners,
         "playcount": playcount,
         "followers": weekly_listeners,
-        "follower_velocity_pct": 0.0,
+        "follower_velocity_pct": velocity_pct,
         "active_markets": active_markets,
         "genres": genres,
         "popularity": popularity,
-        "velocity_estimated": False,
+        "velocity_estimated": True,
         "data_limited": False,
         "listener_period": "weekly",
     }
@@ -167,12 +217,7 @@ def get_artist_overview(artist_name: str, market: str = "US") -> dict:
 
 @retry_with_backoff(max_retries=3, base_delay=1.0)
 def get_top_tracks(artist_name: str, limit: int = 5) -> list[dict]:
-    """
-    Fetch artist top tracks with play counts.
-
-    Returns:
-        List of dicts: {name, playcount, listeners, rank}
-    """
+    """Fetch artist top tracks with play counts."""
     data = _call_api("artist.gettoptracks", {
         "artist": artist_name,
         "autocorrect": 1,
@@ -203,12 +248,7 @@ def get_top_tracks(artist_name: str, limit: int = 5) -> list[dict]:
 
 @retry_with_backoff(max_retries=3, base_delay=1.0)
 def get_similar_artists(artist_name: str, limit: int = 5) -> list[dict]:
-    """
-    Fetch similar artists for genre and scene context.
-
-    Returns:
-        List of dicts: {name, match_score}
-    """
+    """Fetch similar artists for genre and scene context."""
     data = _call_api("artist.getsimilar", {
         "artist": artist_name,
         "autocorrect": 1,
@@ -219,25 +259,18 @@ def get_similar_artists(artist_name: str, limit: int = 5) -> list[dict]:
     if isinstance(similar, dict):
         similar = [similar]
 
-    result = []
-    for artist in similar[:limit]:
-        result.append({
-            "name": artist.get("name", ""),
-            "match_score": float(artist.get("match", 0)),
-        })
-
-    logger.info(f"Last.fm similar artists for {artist_name}: {len(result)} found")
-    return result
+    return [
+        {
+            "name": a.get("name", ""),
+            "match_score": float(a.get("match", 0)),
+        }
+        for a in similar[:limit]
+    ]
 
 
 @retry_with_backoff(max_retries=3, base_delay=1.0)
 def get_artist_tags(artist_name: str) -> list[str]:
-    """
-    Fetch top tags for an artist -- useful for genre classification.
-
-    Returns:
-        List of tag strings e.g. ['electronic', 'techno', 'berlin']
-    """
+    """Fetch top genre tags for an artist."""
     data = _call_api("artist.gettoptags", {
         "artist": artist_name,
         "autocorrect": 1,
@@ -252,13 +285,7 @@ def get_artist_tags(artist_name: str) -> list[str]:
 
 @retry_with_backoff(max_retries=3, base_delay=1.0)
 def search_artist(artist_name: str) -> list[dict]:
-    """
-    Search for artists by name -- returns multiple matches.
-    Useful for disambiguation when artist name is ambiguous.
-
-    Returns:
-        List of dicts: {name, listeners, mbid}
-    """
+    """Search for artists by name for disambiguation."""
     data = _call_api("artist.search", {
         "artist": artist_name,
         "limit": 5,
@@ -272,12 +299,11 @@ def search_artist(artist_name: str) -> list[dict]:
     if isinstance(matches, dict):
         matches = [matches]
 
-    result = []
-    for artist in matches:
-        result.append({
-            "name": artist.get("name", ""),
-            "listeners": int(artist.get("listeners", 0)),
-            "mbid": artist.get("mbid", ""),
-        })
-
-    return result
+    return [
+        {
+            "name": a.get("name", ""),
+            "listeners": int(a.get("listeners", 0)),
+            "mbid": a.get("mbid", ""),
+        }
+        for a in matches
+    ]
