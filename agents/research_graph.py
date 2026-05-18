@@ -228,7 +228,7 @@ def node_synthesise(state: ResearchState) -> ResearchState:
     """Use Claude to synthesise all research into a report draft."""
     logger.info(f"Synthesising report for: {state['artist_name']}")
 
-    llm = ChatAnthropic(model="claude-3-5-sonnet-20241022", temperature=0.2)
+    llm = ChatAnthropic(model="claude-sonnet-4-5", temperature=0.2)
 
     prompt = ChatPromptTemplate.from_messages([
         ("system", """You are an A&R Intelligence Agent for Believe, a global digital

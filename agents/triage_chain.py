@@ -137,7 +137,7 @@ def classify_decision(score: int, spotify_data: dict, news_data: dict) -> str:
 # Claude reasoning chain
 # ---------------------------------------------------------------------------
 
-_llm = ChatAnthropic(model="claude-3-5-sonnet-20241022", temperature=0.1)
+_llm = ChatAnthropic(model="claude-sonnet-4-5", temperature=0.1)
 
 _reasoning_prompt = ChatPromptTemplate.from_messages([
     ("system", """You are an A&R triage agent for Believe, a global
