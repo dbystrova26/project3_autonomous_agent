@@ -1,11 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
 
-
-# ---------------------------------------------------------------------------
-# Fixtures — mock API responses
-# ---------------------------------------------------------------------------
-
 MOCK_SPOTIFY_SIGN = {
     "artist_id": "abc123",
     "artist_name": "Nova Eclipse",
@@ -79,10 +74,6 @@ MOCK_SPOTIFY_WATCH = {
 }
 
 
-# ---------------------------------------------------------------------------
-# Tests for scoring function
-# ---------------------------------------------------------------------------
-
 class TestScoreArtist:
 
     def test_high_score_yields_sign(self):
@@ -106,7 +97,7 @@ class TestScoreArtist:
         from agents.triage_chain import score_artist
         score_with_priority, _ = score_artist(MOCK_SPOTIFY_WATCH, MOCK_NEWS_WATCH, "electronic")
         score_without, _ = score_artist(MOCK_SPOTIFY_WATCH, MOCK_NEWS_WATCH, "unknown-genre")
-        assert score_with_priority > score_without, "Priority genre should add points"
+        assert score_with_priority > score_without
 
     def test_score_capped_at_100(self):
         from agents.triage_chain import score_artist
@@ -114,12 +105,8 @@ class TestScoreArtist:
                            "follower_velocity_pct": 999.0, "active_markets": 100}
         perfect_news = {**MOCK_NEWS_SIGN, "press_score": 100}
         score, _ = score_artist(perfect_spotify, perfect_news, "electronic")
-        assert score <= 100, "Score must not exceed 100"
+        assert score <= 100
 
-
-# ---------------------------------------------------------------------------
-# Tests for classification logic
-# ---------------------------------------------------------------------------
 
 class TestClassifyDecision:
 
@@ -148,12 +135,8 @@ class TestClassifyDecision:
         from agents.triage_chain import classify_decision
         big_spotify = {**MOCK_SPOTIFY_SIGN, "monthly_listeners": 2000000}
         result = classify_decision(30, big_spotify, MOCK_NEWS_PASS)
-        assert result in ("WATCH", "SIGN"), f"Expected WATCH minimum for 1M+ artist, got {result}"
+        assert result in ("WATCH", "SIGN")
 
-
-# ---------------------------------------------------------------------------
-# Integration tests with mocked external calls
-# ---------------------------------------------------------------------------
 
 class TestRunTriage:
 
@@ -164,4 +147,59 @@ class TestRunTriage:
     def test_full_triage_returns_sign(
         self, mock_chain, mock_press_score, mock_news, mock_spotify
     ):
-        mock_chain.invoke.return_value = {"reasoning": "S
+        mock_chain.invoke.return_value = {"reasoning": "Strong metrics support SIGN."}
+        from agents.triage_chain import run_triage
+        result = run_triage("Nova Eclipse", "indie-pop")
+        assert result["decision"] == "SIGN"
+        assert result["score"] >= 70
+        assert result["spotify_unavailable"] is False
+        assert result["news_unavailable"] is False
+        assert "reasoning" in result
+        assert "signals" in result
+
+    @patch("agents.triage_chain.get_artist_overview", side_effect=Exception("Spotify down"))
+    @patch("agents.triage_chain.get_press_summary", side_effect=Exception("NewsAPI down"))
+    def test_both_apis_fail_returns_error(self, mock_news, mock_spotify):
+        from agents.triage_chain import run_triage
+        result = run_triage("Unknown Artist", "pop")
+        assert result["decision"] == "ERROR"
+        assert result["spotify_unavailable"] is True
+        assert result["news_unavailable"] is True
+
+    @patch("agents.triage_chain.get_artist_overview", side_effect=Exception("Spotify down"))
+    @patch("agents.triage_chain.get_press_summary", return_value=MOCK_NEWS_SIGN)
+    @patch("agents.triage_chain.get_press_score", return_value=22)
+    @patch("agents.triage_chain._reasoning_chain")
+    def test_spotify_failure_continues_with_news(
+        self, mock_chain, mock_press_score, mock_news, mock_spotify
+    ):
+        mock_chain.invoke.return_value = {"reasoning": "Based on press data only."}
+        from agents.triage_chain import run_triage
+        result = run_triage("Test Artist", "pop")
+        assert result["decision"] != "ERROR"
+        assert result["spotify_unavailable"] is True
+        assert result["news_unavailable"] is False
+
+
+class TestNewsTool:
+
+    def test_tier1_outlet_scores_5(self):
+        from tools.news_tool import _score_outlet
+        assert _score_outlet("NME") == 5.0
+        assert _score_outlet("Pitchfork") == 5.0
+        assert _score_outlet("Resident Advisor") == 5.0
+
+    def test_tier2_outlet_scores_2(self):
+        from tools.news_tool import _score_outlet
+        assert _score_outlet("Clash Music") == 2.0
+        assert _score_outlet("Stereogum") == 2.0
+
+    def test_unknown_outlet_scores_half(self):
+        from tools.news_tool import _score_outlet
+        assert _score_outlet("some-random-blog.com") == 0.5
+
+    def test_press_score_capped_at_25(self):
+        from tools.news_tool import get_press_score
+        maxed_summary = {"tier1_count": 10, "tier2_count": 10, "blog_count": 10, "recency_score": 1.0}
+        score = get_press_score(maxed_summary)
+        assert score <= 25
