@@ -10,7 +10,7 @@ Built by: Daria Bystrova | Ironhack Data Analytics Bootcamp | Project 3
 An A&R (Artists & Repertoire) manager at Believe receives hundreds of artist submissions globally. Manually researching each one takes hours. This agent automates the entire first-pass evaluation:
 
 1. Submit an artist name via API
-2. The agent pulls data from Spotify, YouTube, NewsAPI, and Believe's roster database
+2. The agent pulls data from Spotify, Last.fm, YouTube, NewsAPI, and Believe's roster database
 3. It scores the artist 0–100 and returns **PASS / WATCH / SIGN**
 4. For SIGN decisions it generates a full structured report
 5. For WATCH decisions it sends a Slack alert to the A&R manager
@@ -27,27 +27,29 @@ Your request (curl / n8n webhook)
 FastAPI /triage endpoint
         ↓
 LangChain triage chain
-  ├── Tool 1: Spotify API → streaming metrics
+  ├── Tool 1: Spotify API → artist search + ID
+  │          ↓ if dev mode restricted
+  │   Last.fm API → real listener counts (fallback/enrichment)
   └── Tool 2: NewsAPI → press coverage
         ↓
 Score 0-100 → PASS / WATCH / SIGN
         ↓
-    ┌───────────────────────────────┐
-    │                               │
-  PASS                           WATCH                          SIGN
-  logged                     Slack alert               LangGraph research agent
-                           to A&R manager                      ↓
-                                                   ┌─────────────────────┐
-                                                   │ Spotify deep dive   │
-                                                   │ NewsAPI analysis    │ (parallel)
-                                                   │ YouTube stats       │
-                                                   │ Pinecone roster RAG │
-                                                   └─────────────────────┘
-                                                           ↓
-                                                   Claude synthesises report
-                                                           ↓
-                                                   Report saved to reports/
-                                                   + Slack summary sent
+    ┌─────────────────────────────────┐
+    │                                 │
+  PASS                             WATCH                          SIGN
+  logged                       Slack alert               LangGraph research agent
+                             to A&R manager                      ↓
+                                                     ┌─────────────────────┐
+                                                     │ Spotify+Last.fm     │
+                                                     │ NewsAPI analysis    │ (parallel)
+                                                     │ YouTube stats       │
+                                                     │ Pinecone roster RAG │
+                                                     └─────────────────────┘
+                                                             ↓
+                                                     Claude synthesises report
+                                                             ↓
+                                                     Report saved to reports/
+                                                     + Slack summary sent
 ```
 
 ---
@@ -62,40 +64,139 @@ Score 0-100 → PASS / WATCH / SIGN
 | Embeddings | OpenAI text-embedding-3-small | Artist profile vectorisation |
 | API runtime | FastAPI + Uvicorn | HTTP endpoints for n8n and direct calls |
 | Workflow automation | n8n | Webhook trigger, Slack output, Google Drive storage |
-| APIs | Spotify, NewsAPI, YouTube | Real data sources |
+| Streaming data | Spotify + Last.fm | Two-source resilient data collection |
+| Press data | NewsAPI | Press coverage and traction signals |
+| Video data | YouTube Data API v3 | Channel stats and upload cadence |
 | Testing | pytest + pytest-mock | 17 unit tests, no real API calls needed |
 
 ---
 
-## Known limitations & data mocking
+## Data sources — what we get from each
 
-### Spotify dev mode restriction
-Spotify has restricted their API since April 2025. New apps in **Development Mode** only return `name`, `type`, `uri`, and `images` — no `followers`, `popularity`, `genres`, or `audio_features`.
+### Spotify
+Spotify is the primary streaming data source. We use Client Credentials flow (no user login needed).
 
-**What we did**: The agent detects this limitation and falls back to mock estimates:
-- Monthly listeners: 500,000 (mid-range estimate)
-- Followers: 100,000
-- Follower velocity: 15% MoM
-- Active markets: 8
-- All flagged with `data_limited: true` in the response
+| Data point | Endpoint | Status |
+|-----------|---------|--------|
+| Artist search + ID | `/search` | ✓ Always available |
+| Follower count | `/artists/{id}` | ✗ Restricted since Feb 2026 |
+| Popularity score (0-100) | `/artists/{id}` | ✗ Restricted since Feb 2026 |
+| Genre tags | `/artists/{id}` | ✗ Restricted since Feb 2026 |
+| Top tracks | `/artists/{id}/top-tracks` | ✗ Restricted since Feb 2026 |
+| Audio features | `/audio-features` | ✗ Restricted since Feb 2026 |
+| Monthly listeners | Not in API | Never available (Spotify internal only) |
 
-**How to fix this**: Request Extended Quota Mode from Spotify:
-1. Go to developer.spotify.com/dashboard
-2. Click your app → Settings
-3. Scroll to **Request Extended Quota Mode**
-4. Fill in the form explaining your use case
-5. Wait 1-2 business days for approval
+**Why Spotify is still included**: It provides the canonical artist ID (used to identify the exact artist across sources) and artist search. When Extended Quota is approved, all restricted endpoints become available automatically.
 
-Once approved, real Spotify data will flow automatically — no code changes needed.
+### Last.fm (fallback and enrichment)
+Last.fm is free with no restrictions. When Spotify returns limited dev mode data, we automatically enrich with Last.fm.
 
-### NewsAPI free tier
-Free tier limits to 100 requests/day and 30 days of article history. Results are cached per artist for 24 hours to preserve quota. For production, upgrade to the Developer plan.
+| Data point | Endpoint | Status |
+|-----------|---------|--------|
+| Total unique listeners | `artist.getinfo` | ✓ Always available |
+| Total play count | `artist.getinfo` | ✓ Always available |
+| Genre tags | `artist.gettoptags` | ✓ Always available |
+| Top tracks with play counts | `artist.gettoptracks` | ✓ Always available |
+| Similar artists | `artist.getsimilar` | ✓ Always available |
+| Monthly listeners | Not available | ✗ Last.fm only provides total/weekly |
+| Follower velocity (MoM %) | Not available | ✗ No historical trend data |
 
-### Pinecone roster data
-The `believe-roster` Pinecone index contains **25 simulated artist profiles** — not real Believe artist data. In a real deployment this would be populated with actual signed artist data from Believe's systems.
+**Limitation**: Last.fm doesn't provide month-over-month growth trends. This means `follower_velocity_pct` is always 0.0 in the current implementation, which costs up to 25 pts in scoring.
 
-### YouTube API
-YouTube Data API v3 free tier allows 10,000 units/day. Each artist lookup costs ~103 units. This supports ~97 artist lookups per day for free.
+### How they work together
+
+```
+Agent calls Spotify search
+    ↓
+Spotify returns artist ID (always works)
+    ↓
+Agent calls Spotify for full artist data
+    ↓
+    ├── If Spotify returns full data (Extended Quota approved)
+    │       Use Spotify for everything
+    │
+    └── If Spotify returns limited data (dev mode, Feb 2026 restrictions)
+            Detect data_limited: true flag
+            Call Last.fm for real listener counts
+            Merge: Spotify ID + Last.fm metrics
+            Result: spotify+lastfm combined source
+```
+
+### NewsAPI
+| Data point | Available |
+|-----------|---------|
+| Article count (last 30 days) | ✓ |
+| Outlet names (for tier scoring) | ✓ |
+| Publication dates (for recency) | ✓ |
+| Headline text (for sentiment) | ✓ |
+| Full article body | ✗ Free tier only returns headlines |
+
+### YouTube Data API v3
+| Data point | Available |
+|-----------|---------|
+| Subscriber count | ✓ |
+| Total view count | ✓ |
+| Recent video views | ✓ |
+| Upload frequency | ✓ |
+| Last upload date | ✓ |
+
+### Pinecone roster RAG
+| Data point | Available |
+|-----------|---------|
+| Similar artist matches | ✓ |
+| Signing outcome (success/dropped) | ✓ |
+| Listeners at signing | ✓ |
+| Label tier (TuneCore/Premium) | ✓ |
+
+---
+
+## Spotify restrictions — full explanation
+
+### What changed (February 2026)
+Spotify announced major API restrictions in February 2026 to protect artist data and control AI usage of their platform. All new developer apps created after this date are limited to:
+
+- Only `/search` and basic metadata endpoints
+- No follower counts, popularity scores, or genre data
+- No top tracks or audio features
+- No monthly listener data (this was never in the API anyway)
+
+### Why this matters for A&R
+Without Spotify popularity and follower data, our scoring model loses up to 30 pts (listeners dimension) and 25 pts (velocity dimension) — potentially 55 pts of the 100 pt score. This is why Dua Lipa scores 68 instead of 90+ — we have her real listener count from Last.fm but no velocity data.
+
+### How we handle it now
+1. Spotify provides the artist ID (search always works)
+2. We detect `data_limited: true` in the Spotify response
+3. We automatically call Last.fm for real listener counts
+4. We merge both sources into a combined `spotify+lastfm` result
+5. All responses include `data_source` field showing which source was used
+
+### How it would be eliminated in a real Believe deployment
+
+**Option 1 — Spotify Extended Quota Mode**
+Apply at developer.spotify.com → app Settings → Request Extended Quota Mode. Approval takes 1-2 weeks for legitimate business use cases. Once approved, all restricted endpoints return full data automatically. No code changes needed — just an approved app.
+
+**Option 2 — Believe's internal data platform (most realistic)**
+Believe processes 800 billion streams annually and has direct DSP partnerships with Spotify, Apple Music, YouTube Music, and others. In a real deployment, the agent would query Believe's internal analytics platform (likely Tableau, Snowflake, or a proprietary system) rather than the public Spotify API. This would provide:
+- Real monthly listeners per market
+- Week-over-week and month-over-month trends
+- Platform breakdown (Spotify vs Apple vs YouTube)
+- Playlist placement data
+- Revenue per stream data
+
+**Option 3 — Chartmetric or Soundcharts API**
+Third-party music analytics platforms aggregate data from all DSPs including Spotify, bypassing API restrictions. Chartmetric ($X/month) provides real Spotify monthly listeners, TikTok stats, radio airplay, and playlist data. This is the fastest commercial solution.
+
+---
+
+## Known limitations summary
+
+| Limitation | Impact | Workaround used | Real solution |
+|-----------|--------|----------------|---------------|
+| Spotify dev mode | No follower/popularity data | Last.fm enrichment | Extended Quota or internal DSP data |
+| No MoM velocity | Missing 25 pts in score | Velocity = 0 (conservative) | Chartmetric API or Believe internal |
+| NewsAPI free tier | 100 req/day, headlines only | 24h cache per artist | NewsAPI Developer plan |
+| Pinecone mock data | 25 simulated profiles, not real | Realistic simulated data | Believe internal roster database |
+| YouTube free tier | 10K units/day | Sufficient for development | YouTube Partner API |
 
 ---
 
@@ -104,8 +205,8 @@ YouTube Data API v3 free tier allows 10,000 units/day. Each artist lookup costs 
 ### Prerequisites
 - Python 3.11 or higher
 - Git
-- A terminal (VS Code terminal recommended)
-- Accounts for: Anthropic, Spotify, NewsAPI, YouTube, Pinecone, OpenAI, Slack
+- VS Code (recommended)
+- Accounts for: Anthropic, Spotify, Last.fm, NewsAPI, YouTube, Pinecone, OpenAI, Slack
 
 ### 1. Clone the repository
 ```bash
@@ -138,101 +239,128 @@ pip install -r requirements.txt
 ```bash
 cp .env.example .env
 ```
-Open `.env` in any text editor and fill in all values. See `docs/api_setup.md` for where to get each key.
+Open `.env` and fill in all values:
 
-**Required keys:**
 ```
 ANTHROPIC_API_KEY       → console.anthropic.com
 SPOTIFY_CLIENT_ID       → developer.spotify.com/dashboard
 SPOTIFY_CLIENT_SECRET   → developer.spotify.com/dashboard
-NEWSAPI_KEY             → newsapi.org/register
+LASTFM_API_KEY          → last.fm/api/account/create (free, instant)
+NEWSAPI_KEY             → newsapi.org/register (free, instant)
 YOUTUBE_API_KEY         → console.cloud.google.com
 PINECONE_API_KEY        → app.pinecone.io
-PINECONE_INDEX          → believe-roster (type this exactly)
+PINECONE_INDEX          → believe-roster
 OPENAI_API_KEY          → platform.openai.com/api-keys
 SLACK_BOT_TOKEN         → api.slack.com/apps
 SLACK_CHANNEL_ID        → right-click channel in Slack → Copy Link → last part
 ```
 
+See `docs/api_setup.md` for detailed instructions for each key.
+
 ### 6. Load artist data into Pinecone (one time only)
 ```bash
 python scripts/ingest_roster.py
 ```
-This embeds 25 artist profiles into your Pinecone index. Takes about 30 seconds. Only needs to be run once.
+Embeds 25 artist profiles into Pinecone. Takes ~30 seconds. Run once only.
 
 ### 7. Run the tests
 ```bash
 python -m pytest tests/ -v
 ```
-Should show **17 passed**. If anything fails, check your file structure matches the project layout below.
+Should show **17 passed**.
 
 ### 8. Start the API
 ```bash
 uvicorn api.main:app --port 8000 --log-level warning
 ```
-Keep this terminal open — the API runs here. You need a second terminal for commands.
+Keep this terminal open. Open a second terminal for commands.
 
 ---
 
 ## How to use it
 
-### Test the API is running
-Open a second terminal, activate venv, then:
+### Option A — Interactive browser UI (easiest)
+Once the server is running, open in your browser:
+```
+http://127.0.0.1:8000/docs
+```
+FastAPI generates a full interactive UI. Click any endpoint, fill in the form, click Execute. No curl needed.
+
+### Option B — Command line
+
+**Health check:**
 ```bash
 curl http://127.0.0.1:8000/health
 ```
-Expected response: `{"status":"ok","service":"ar-agent"}`
 
-### Run a triage on an artist
-
-**Windows Git Bash:**
+**Run triage (Windows Git Bash):**
 ```bash
 curl -X POST http://127.0.0.1:8000/triage -H "Content-Type: application/json" -d "{\"artist_name\": \"Dua Lipa\", \"genre\": \"pop\"}"
 ```
 
-**Mac / Linux:**
+**Run triage (Mac/Linux):**
 ```bash
 curl -X POST http://127.0.0.1:8000/triage \
   -H "Content-Type: application/json" \
   -d '{"artist_name": "Dua Lipa", "genre": "pop"}'
 ```
 
-**PowerShell:**
+**Run triage (PowerShell):**
 ```powershell
 Invoke-RestMethod -Uri "http://127.0.0.1:8000/triage" -Method POST -ContentType "application/json" -Body '{"artist_name": "Dua Lipa", "genre": "pop"}'
 ```
 
-### Example response
+**Run full research report (triggers SIGN flow):**
+```bash
+curl -X POST http://127.0.0.1:8000/research -H "Content-Type: application/json" -d "{\"artist_name\": \"Fisher\", \"genre\": \"electronic\", \"triage_score\": 85}"
+```
+Report saved to `reports/` as a Markdown file.
+
+### Example triage response
 ```json
 {
   "artist_name": "Dua Lipa",
-  "score": 56,
+  "score": 68,
   "decision": "WATCH",
   "signals": {
-    "monthly_listeners": 500000,
+    "monthly_listeners": 3303823,
+    "listeners": 3303823,
+    "playcount": 322064347,
     "press_article_count": 44,
     "press_tier1_count": 6,
-    "active_markets": 8
+    "active_markets": 7,
+    "genres": ["pop", "synthpop", "electropop"],
+    "data_source": "spotify+lastfm"
   },
-  "reasoning": "Dua Lipa shows strong press traction with 44 articles and 6 tier-1 outlets including Billboard and Rolling Stone. Streaming estimates are mid-range pending Spotify Extended Access approval. Recommend WATCH pending real streaming data confirmation.",
+  "reasoning": "Dua Lipa has 3.3M listeners and strong press traction with 44 articles including 6 tier-1 outlets. Score is 68 due to missing velocity data — with real Spotify MoM growth data this would score 85+ and trigger SIGN.",
   "spotify_unavailable": false,
   "news_unavailable": false
 }
 ```
 
-### Run a full research report
-Only works when decision = SIGN. Change artist to trigger SIGN (score >= 70):
-```bash
-curl -X POST http://127.0.0.1:8000/research -H "Content-Type: application/json" -d "{\"artist_name\": \"Artist Name\", \"genre\": \"electronic\", \"triage_score\": 85}"
-```
-Report is saved to `reports/` folder as a Markdown file.
-
-### Supported genres (Believe priority genres)
+### Supported genres (Believe priority — +10 pts)
 ```
 hip-hop, electronic, latin, afrobeats, french-rap, indie-pop,
-r-n-b, metal, bollywood, java-pop, punjabi, techno, house, alt-pop
+r-n-b, metal, bollywood, java-pop, punjabi, techno, house, alt-pop, pop, rap
 ```
-Using a priority genre adds +10 pts to the triage score.
+
+---
+
+## Scoring logic
+
+| Dimension | Weight | Source | Signal |
+|-----------|--------|--------|--------|
+| Monthly listeners | 30 pts | Last.fm (via Spotify+Last.fm) | Absolute audience size |
+| Follower velocity | 25 pts | Spotify only (0 in dev mode) | Month-over-month growth |
+| Press coverage | 25 pts | NewsAPI | Tier-1/2 outlet count + recency |
+| Market diversity | 10 pts | Derived from popularity | Number of active countries |
+| Genre fit | 10 pts | Last.fm tags | Matches Believe priority genres |
+
+| Score | Decision | Action |
+|-------|----------|--------|
+| 70–100 | SIGN | Full LangGraph research report generated |
+| 40–69 | WATCH | Slack alert to A&R manager |
+| 0–39 | PASS | Logged silently, no action |
 
 ---
 
@@ -241,10 +369,10 @@ Using a priority genre adds +10 pts to the triage score.
 ```
 project3_autonomous_agent/
 ├── agents/
-│   ├── triage_chain.py       # LangChain: Spotify + News → PASS/WATCH/SIGN
+│   ├── triage_chain.py       # LangChain: Spotify+LastFM+News → PASS/WATCH/SIGN
 │   └── research_graph.py     # LangGraph: parallel research + Claude report
 ├── api/
-│   └── main.py               # FastAPI endpoints: /triage, /research, /health
+│   └── main.py               # FastAPI: /triage, /research, /health
 ├── data/
 │   └── roster_seed.json      # 25 simulated Believe artist profiles
 ├── docs/
@@ -263,7 +391,8 @@ project3_autonomous_agent/
 │   └── test_triage_chain.py  # 17 unit tests
 ├── tools/
 │   ├── base.py               # Retry decorator for all API calls
-│   ├── spotify_tool.py       # Spotify API wrapper
+│   ├── spotify_tool.py       # Spotify API wrapper (artist ID + search)
+│   ├── lastfm_tool.py        # Last.fm API wrapper (listener counts + tracks)
 │   ├── news_tool.py          # NewsAPI wrapper
 │   ├── youtube_tool.py       # YouTube Data API wrapper
 │   └── pinecone_tool.py      # Pinecone vector search
@@ -275,56 +404,18 @@ project3_autonomous_agent/
 
 ---
 
-## Scoring logic
-
-| Dimension | Weight | Signal |
-|-----------|--------|--------|
-| Monthly listeners | 30 pts | Absolute audience size |
-| Follower velocity | 25 pts | Month-over-month growth |
-| Press coverage | 25 pts | Tier-1/2 outlet count + recency |
-| Market diversity | 10 pts | Number of active countries |
-| Genre fit | 10 pts | Matches Believe priority genres |
-
-| Score | Decision | Action |
-|-------|----------|--------|
-| 70–100 | SIGN | Full research report generated |
-| 40–69 | WATCH | Slack alert to A&R manager |
-| 0–39 | PASS | Logged silently |
-
----
-
 ## Future improvements
 
-- Web interface for non-technical A&R managers (planned)
-- Real Spotify data once Extended Quota approved
-- Real Believe roster data via internal API integration
-- n8n webhook for fully automated trigger (no curl needed)
+- Web interface for non-technical A&R managers (planned for next sprint)
+- Real Spotify data once Extended Quota Mode approved
+- Chartmetric API integration for MoM velocity data
+- Real Believe roster data via internal API
+- n8n webhook for fully automated pipeline (no curl needed)
 - Multi-artist comparison reports
-- Weekly monitoring for WATCH artists
-
----
-
-## API documentation
-
-Once the server is running, visit:
-```
-http://127.0.0.1:8000/docs
-```
-FastAPI generates interactive documentation automatically — you can test all endpoints directly in the browser without curl.
-
----
-
-## Running tests without API keys
-
-All tests use mocked API responses. You can run the test suite without any real API keys:
-```bash
-python -m pytest tests/ -v
-```
+- Weekly automated monitoring for WATCH artists
 
 ---
 
 ## Agile planning
 
-Full sprint plan with user stories, estimates, dependencies, and definitions of done:
-- See `docs/stories.md`
-- 14 user stories across 5 sprints (1 sprint = 1 day)
+Full sprint plan: `docs/stories.md` — 14 user stories across 5 sprints.
