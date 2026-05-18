@@ -1,14 +1,14 @@
 """
 agents/research_graph.py
 
-LangGraph research agent -- full parallel multi-source research
+LangGraph research agent -- sequential multi-source research
 and Claude report synthesis for SIGN decisions.
 
-Data sources:
-- Spotify (primary) + Last.fm (fallback/enrichment)
-- NewsAPI -- press coverage
-- YouTube -- channel stats
-- Pinecone -- roster similarity RAG
+Data sources (run sequentially):
+1. Spotify + Last.fm -- streaming metrics
+2. NewsAPI -- press coverage
+3. YouTube -- channel stats
+4. Pinecone -- roster similarity RAG
 
 Called by: api/main.py /research endpoint
 """
@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 import os
 from datetime import datetime
-from typing import TypedDict, Optional
+from typing import TypedDict
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -64,10 +64,7 @@ class ResearchState(TypedDict):
 # ---------------------------------------------------------------------------
 
 def fetch_streaming_data(artist_name: str, market: str = "US") -> dict:
-    """
-    Fetch streaming data using Spotify first, Last.fm as fallback.
-    Same logic as triage_chain but for the research graph.
-    """
+    """Fetch streaming data using Spotify first, Last.fm as fallback."""
     try:
         overview = spotify_get_artist(artist_name, market=market)
 
@@ -77,9 +74,11 @@ def fetch_streaming_data(artist_name: str, market: str = "US") -> dict:
                 lf = lastfm_get_artist(artist_name)
                 overview.update({
                     "monthly_listeners": lf["monthly_listeners"],
+                    "weekly_listeners": lf.get("weekly_listeners", 0),
                     "listeners": lf["listeners"],
                     "playcount": lf.get("playcount", 0),
                     "followers": lf["followers"],
+                    "follower_velocity_pct": lf.get("follower_velocity_pct", 0.0),
                     "popularity": lf["popularity"],
                     "active_markets": lf["active_markets"],
                     "genres": lf["genres"] if not overview.get("genres") else overview["genres"],
@@ -97,12 +96,9 @@ def fetch_streaming_data(artist_name: str, market: str = "US") -> dict:
 
     except Exception as spotify_err:
         logger.warning(f"Spotify failed: {spotify_err} -- using Last.fm directly")
-        try:
-            lf_data = lastfm_get_artist(artist_name)
-            lf_data["source"] = "lastfm"
-            return lf_data
-        except Exception as lf_err:
-            raise Exception(f"Both Spotify and Last.fm failed: {lf_err}")
+        lf_data = lastfm_get_artist(artist_name)
+        lf_data["source"] = "lastfm"
+        return lf_data
 
 
 def fetch_top_tracks(artist_name: str, artist_id: str) -> list[dict]:
@@ -133,13 +129,13 @@ def node_validate_input(state: ResearchState) -> ResearchState:
 
 
 # ---------------------------------------------------------------------------
-# Node: Spotify + Last.fm deep research
+# Node: Spotify + Last.fm research
 # ---------------------------------------------------------------------------
 
 def node_spotify_deep(state: ResearchState) -> ResearchState:
-    """Fetch extended streaming data -- Spotify with Last.fm enrichment."""
-    logger.info(f"Streaming deep research: {state['artist_name']}")
-    errors = state.get("errors", [])
+    """Fetch streaming data -- Spotify with Last.fm enrichment."""
+    logger.info(f"Streaming research: {state['artist_name']}")
+    errors = list(state.get("errors", []))
 
     try:
         overview = fetch_streaming_data(
@@ -153,7 +149,11 @@ def node_spotify_deep(state: ResearchState) -> ResearchState:
         )
         overview["top_tracks"] = tracks
 
-        track_ids = [t.get("track_id", "") for t in tracks if t.get("track_id") and "mock" not in t.get("track_id", "")]
+        track_ids = [
+            t.get("track_id", "") for t in tracks
+            if t.get("track_id") and "mock" not in t.get("track_id", "")
+            and "lastfm" not in t.get("track_id", "")
+        ]
         if track_ids:
             try:
                 audio = get_audio_features(track_ids)
@@ -167,10 +167,10 @@ def node_spotify_deep(state: ResearchState) -> ResearchState:
                 }
 
         logger.info(
-            f"Streaming data: {overview.get('monthly_listeners', 0):,} listeners "
+            f"Streaming OK: {overview.get('monthly_listeners', 0):,} listeners "
             f"(source: {overview.get('source', 'unknown')})"
         )
-        return {**state, "spotify_data": overview}
+        return {**state, "spotify_data": overview, "errors": errors}
 
     except Exception as e:
         error_msg = f"Streaming research failed: {e}"
@@ -188,9 +188,9 @@ def node_spotify_deep(state: ResearchState) -> ResearchState:
 # ---------------------------------------------------------------------------
 
 def node_news_analysis(state: ResearchState) -> ResearchState:
-    """Fetch full press analysis for the artist."""
+    """Fetch press analysis for the artist."""
     logger.info(f"News analysis: {state['artist_name']}")
-    errors = state.get("errors", [])
+    errors = list(state.get("errors", []))
 
     try:
         press_summary = get_press_summary(
@@ -201,7 +201,7 @@ def node_news_analysis(state: ResearchState) -> ResearchState:
         press_score = get_press_score(press_summary)
         news_data = {**press_summary, "press_score": press_score}
         logger.info(f"News: {news_data.get('article_count', 0)} articles, score={press_score}")
-        return {**state, "news_data": news_data}
+        return {**state, "news_data": news_data, "errors": errors}
 
     except Exception as e:
         error_msg = f"News analysis failed: {e}"
@@ -219,14 +219,14 @@ def node_news_analysis(state: ResearchState) -> ResearchState:
 # ---------------------------------------------------------------------------
 
 def node_youtube(state: ResearchState) -> ResearchState:
-    """Fetch YouTube channel stats for the artist."""
+    """Fetch YouTube channel stats."""
     logger.info(f"YouTube research: {state['artist_name']}")
-    errors = state.get("errors", [])
+    errors = list(state.get("errors", []))
 
     try:
         youtube_data = get_channel_stats(state["artist_name"])
         logger.info(f"YouTube: subscribers={youtube_data.get('subscriber_count', 0)}")
-        return {**state, "youtube_data": youtube_data}
+        return {**state, "youtube_data": youtube_data, "errors": errors}
 
     except Exception as e:
         error_msg = f"YouTube research failed: {e}"
@@ -245,8 +245,8 @@ def node_youtube(state: ResearchState) -> ResearchState:
 
 def node_roster_rag(state: ResearchState) -> ResearchState:
     """Find similar artists in Believe roster via Pinecone."""
-    logger.info(f"Roster RAG search: {state['artist_name']}")
-    errors = state.get("errors", [])
+    logger.info(f"Roster RAG: {state['artist_name']}")
+    errors = list(state.get("errors", []))
 
     try:
         spotify = state.get("spotify_data", {})
@@ -262,7 +262,7 @@ def node_roster_rag(state: ResearchState) -> ResearchState:
 
         matches = find_similar_artists(query_text, top_k=5)
         logger.info(f"Roster: {len(matches)} matches found")
-        return {**state, "roster_matches": matches}
+        return {**state, "roster_matches": matches, "errors": errors}
 
     except Exception as e:
         error_msg = f"Roster RAG failed: {e}"
@@ -291,24 +291,25 @@ music company operating in 50+ countries with two service tiers:
 - TuneCore / Automated Solutions: self-service, flat fee, artists < 500K listeners
 - Premium Solutions: full label services, revenue share, artists > 500K listeners
 
-Write complete, professional A&R signing reports with these sections:
-1. Executive summary (3-4 sentences, standalone readable)
-2. Artist overview
-3. Streaming analysis
-4. Press & media analysis
-5. Digital presence
-6. Roster comparison
-7. Risk factors (2-4 specific risks)
-8. Recommendation (SIGN/WATCH + label tier)
-9. Data sources & confidence
+Write complete, professional A&R signing reports with these 9 sections:
+1. Executive summary (3-4 sentences, standalone readable, include label tier)
+2. Artist overview (genre, origin, career stage, key releases)
+3. Streaming analysis (listeners, growth, markets, audio profile)
+4. Press & media analysis (article count, outlet quality, sentiment)
+5. Digital presence (YouTube metrics, upload cadence)
+6. Roster comparison (top 3 Believe matches with outcomes table)
+7. Risk factors (2-4 specific risks for THIS artist)
+8. Recommendation (SIGN/WATCH + label tier + next step with timeframe)
+9. Data sources & confidence (table of sources, overall confidence level)
 
 Rules:
-- Cite exact figures throughout
-- Note any unavailable data source explicitly
-- Choose TuneCore or Premium Solutions and justify it
+- Cite exact figures throughout — never vague language
+- Note data source (spotify+lastfm, lastfm, spotify) in section 9
+- Note that monthly_listeners is a weekly x 4 proxy when source is lastfm
+- Note that follower_velocity is estimated from playcount ratio when estimated
+- Choose TuneCore or Premium Solutions and justify it clearly
 - Never fabricate data for missing sources
-- Write for an experienced A&R manager
-- Note data source (Spotify, Last.fm, or combined) in section 9"""),
+- Write for an experienced A&R manager, not a data scientist"""),
 
         ("human", """Write a complete A&R signing report for:
 
@@ -316,7 +317,7 @@ ARTIST: {artist_name}
 GENRE: {genre}
 TRIAGE SCORE: {triage_score}/100
 
-STREAMING DATA:
+STREAMING DATA (source noted in data_source field):
 {spotify_data}
 
 NEWS & PRESS DATA:
@@ -325,7 +326,7 @@ NEWS & PRESS DATA:
 YOUTUBE DATA:
 {youtube_data}
 
-ROSTER SIMILARITY MATCHES:
+ROSTER SIMILARITY MATCHES (from Believe's signed artist database):
 {roster_matches}
 
 DATA GAPS / ERRORS:
@@ -353,17 +354,17 @@ DATA GAPS / ERRORS:
         return {
             **state,
             "report_draft": f"Report generation failed: {e}",
-            "errors": state.get("errors", []) + [f"Synthesis failed: {e}"]
+            "errors": list(state.get("errors", [])) + [f"Synthesis failed: {e}"]
         }
 
 
 # ---------------------------------------------------------------------------
-# Node: format final report
+# Node: format and save report
 # ---------------------------------------------------------------------------
 
 def node_format(state: ResearchState) -> ResearchState:
     """Format and save the final report to disk."""
-    logger.info(f"Formatting final report for: {state['artist_name']}")
+    logger.info(f"Saving report for: {state['artist_name']}")
 
     date_str = datetime.now().strftime("%Y-%m-%d")
     artist_slug = state["artist_name"].lower().replace(" ", "_")
@@ -373,7 +374,7 @@ def node_format(state: ResearchState) -> ResearchState:
 **Date**: {date_str}
 **Triage score**: {state.get('triage_score', 0)}/100
 **Genre**: {state.get('genre', '')}
-**Generated by**: A&R Intelligence Agent
+**Generated by**: A&R Intelligence Agent (Spotify + Last.fm + NewsAPI + YouTube + Pinecone)
 
 ---
 
@@ -429,7 +430,7 @@ Escalated to WATCH -- manual A&R review recommended.
     with open(report_path, "w", encoding="utf-8") as f:
         f.write(report)
 
-    logger.info(f"Error report saved to: {report_path}")
+    logger.info(f"Error report saved: {report_path}")
     return {**state, "final_report": report, "report_path": report_path}
 
 
@@ -447,10 +448,10 @@ def should_error(state: ResearchState) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Build the graph
+# Build the graph -- SEQUENTIAL (avoids LangGraph parallel state conflicts)
 # ---------------------------------------------------------------------------
 
-def build_graph() -> StateGraph:
+def build_graph():
     """Build and compile the LangGraph research graph."""
     graph = StateGraph(ResearchState)
 
@@ -465,20 +466,21 @@ def build_graph() -> StateGraph:
 
     graph.set_entry_point("validate_input")
 
+    # Sequential flow -- avoids InvalidUpdateError from parallel writes
     graph.add_edge("validate_input", "spotify_deep")
-    graph.add_edge("validate_input", "news_analysis")
-    graph.add_edge("validate_input", "youtube")
-    graph.add_edge("validate_input", "roster_rag")
+    graph.add_edge("spotify_deep", "news_analysis")
+    graph.add_edge("news_analysis", "youtube")
+    graph.add_edge("youtube", "roster_rag")
 
-    for node in ["spotify_deep", "news_analysis", "youtube", "roster_rag"]:
-        graph.add_conditional_edges(
-            node,
-            should_error,
-            {
-                "synthesise": "synthesise",
-                "error": "error_report"
-            }
-        )
+    # After all research, check errors and route
+    graph.add_conditional_edges(
+        "roster_rag",
+        should_error,
+        {
+            "synthesise": "synthesise",
+            "error": "error_report"
+        }
+    )
 
     graph.add_edge("synthesise", "format")
     graph.add_edge("format", END)
