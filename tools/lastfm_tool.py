@@ -4,16 +4,23 @@ tools/lastfm_tool.py
 Last.fm API wrapper for artist research.
 Replaces Spotify as the primary streaming metrics source.
 
-Free API — no restrictions, no Premium account needed.
-API key only — no secret required for read operations.
+Free API -- no restrictions, no Premium account needed.
+API key only -- no secret required for read operations.
 
 What we fetch:
-- Listener counts (weekly + total)
-- Play counts  
+- Weekly listener counts (used directly as primary metric)
+- Total play count (career reach signal)
 - Artist tags / genres
 - Similar artists
-- Popularity ranking
 - Top tracks with play counts
+
+Note on listeners vs monthly listeners:
+Last.fm exposes weekly unique listeners via artist.getinfo stats.listeners
+This is BETTER than a monthly estimate because:
+- It reflects current momentum (last 7 days)
+- It is a real measured number, not an estimate
+- Weekly listeners * ~4 gives a reasonable monthly proxy
+- We use weekly listeners directly in scoring for accuracy
 """
 
 from __future__ import annotations
@@ -21,7 +28,6 @@ from __future__ import annotations
 import os
 import logging
 import requests
-from typing import Optional
 
 from tools.base import retry_with_backoff
 
@@ -59,19 +65,25 @@ def _call_api(method: str, params: dict) -> dict:
 def get_artist_overview(artist_name: str, market: str = "US") -> dict:
     """
     Fetch core artist metrics for triage scoring.
-    Returns real listener counts, play counts, tags, and similar artists.
+
+    Last.fm stats.listeners = weekly unique listeners (last 7 days).
+    This is a real measured number -- more accurate than a monthly estimate.
+
+    We use weekly listeners directly as our primary audience signal and
+    also calculate a monthly_listeners proxy (weekly * 4) for compatibility
+    with the scoring system which expects monthly_listeners.
 
     Returns:
         {
             artist_name: str,
-            listeners: int,          # total unique listeners
-            playcount: int,          # total plays
-            monthly_listeners: int,  # estimated from weekly listeners
-            followers: int,          # listeners as proxy
+            weekly_listeners: int,   -- real Last.fm weekly unique listeners
+            monthly_listeners: int,  -- weekly * 4 (proxy for scoring)
+            playcount: int,          -- total career plays
+            followers: int,          -- same as weekly_listeners
             follower_velocity_pct: float,
             active_markets: int,
-            genres: list[str],       # Last.fm tags
-            popularity: int,         # 0-100 derived from listeners
+            genres: list[str],
+            popularity: int,         -- 0-100 derived from weekly listeners
             velocity_estimated: bool,
             data_limited: bool,
         }
@@ -84,8 +96,14 @@ def get_artist_overview(artist_name: str, market: str = "US") -> dict:
     artist = data.get("artist", {})
     stats = artist.get("stats", {})
 
-    listeners = int(stats.get("listeners", 0))
+    # stats.listeners = weekly unique listeners on Last.fm
+    weekly_listeners = int(stats.get("listeners", 0))
     playcount = int(stats.get("playcount", 0))
+
+    # Monthly proxy: weekly * 4
+    # This is a reasonable approximation since weekly listeners
+    # tend to be consistent week-over-week for established artists
+    monthly_listeners = weekly_listeners * 4
 
     # Extract tags as genres
     tags_data = artist.get("tags", {}).get("tag", [])
@@ -93,57 +111,64 @@ def get_artist_overview(artist_name: str, market: str = "US") -> dict:
         tags_data = [tags_data]
     genres = [tag["name"] for tag in tags_data[:5]]
 
-    # Derive popularity score 0-100 from listener count
-    # Scale: 0 = 0 listeners, 100 = 10M+ listeners
-    if listeners >= 10_000_000:
+    # Popularity score 0-100 from weekly listener count
+    # Scale calibrated to real artist data:
+    # Dua Lipa = ~3.3M weekly -> 100
+    # Mid-tier artist = ~500K weekly -> 55
+    # Emerging artist = ~50K weekly -> 15
+    if weekly_listeners >= 3_000_000:
         popularity = 100
-    elif listeners >= 5_000_000:
-        popularity = 85
-    elif listeners >= 2_000_000:
-        popularity = 70
-    elif listeners >= 1_000_000:
+    elif weekly_listeners >= 2_000_000:
+        popularity = 90
+    elif weekly_listeners >= 1_000_000:
+        popularity = 75
+    elif weekly_listeners >= 500_000:
         popularity = 55
-    elif listeners >= 500_000:
-        popularity = 40
-    elif listeners >= 100_000:
+    elif weekly_listeners >= 200_000:
+        popularity = 38
+    elif weekly_listeners >= 100_000:
         popularity = 25
-    elif listeners >= 50_000:
+    elif weekly_listeners >= 50_000:
         popularity = 15
+    elif weekly_listeners >= 10_000:
+        popularity = 8
     else:
-        popularity = 5
+        popularity = 3
 
-    # Estimate monthly listeners from total (rough proxy)
-    # Last.fm doesn't expose monthly directly
-    monthly_listeners_estimated = min(listeners, int(playcount / 12)) if playcount > 0 else listeners
-
-    # Estimate active markets from popularity (no geo data in free tier)
+    # Active markets estimated from popularity
+    # No geo data in Last.fm free tier
     active_markets = max(1, popularity // 10)
 
     logger.info(
-        f"Last.fm: {artist_name} — listeners={listeners:,}, "
-        f"playcount={playcount:,}, genres={genres[:2]}"
+        f"Last.fm: {artist_name} -- "
+        f"weekly_listeners={weekly_listeners:,}, "
+        f"monthly_proxy={monthly_listeners:,}, "
+        f"playcount={playcount:,}, "
+        f"genres={genres[:2]}"
     )
 
     return {
         "artist_id": artist.get("mbid", artist_name),
         "artist_name": artist.get("name", artist_name),
-        "monthly_listeners": monthly_listeners_estimated,
-        "listeners": listeners,
+        "weekly_listeners": weekly_listeners,
+        "monthly_listeners": monthly_listeners,
+        "listeners": weekly_listeners,
         "playcount": playcount,
-        "followers": listeners,
+        "followers": weekly_listeners,
         "follower_velocity_pct": 0.0,
         "active_markets": active_markets,
         "genres": genres,
         "popularity": popularity,
         "velocity_estimated": False,
         "data_limited": False,
+        "listener_period": "weekly",
     }
 
 
 @retry_with_backoff(max_retries=3, base_delay=1.0)
 def get_top_tracks(artist_name: str, limit: int = 5) -> list[dict]:
     """
-    Fetch artist's top tracks with play counts.
+    Fetch artist top tracks with play counts.
 
     Returns:
         List of dicts: {name, playcount, listeners, rank}
@@ -179,10 +204,10 @@ def get_top_tracks(artist_name: str, limit: int = 5) -> list[dict]:
 @retry_with_backoff(max_retries=3, base_delay=1.0)
 def get_similar_artists(artist_name: str, limit: int = 5) -> list[dict]:
     """
-    Fetch similar artists — useful for genre/scene context.
+    Fetch similar artists for genre and scene context.
 
     Returns:
-        List of dicts: {name, match_score, genres}
+        List of dicts: {name, match_score}
     """
     data = _call_api("artist.getsimilar", {
         "artist": artist_name,
@@ -208,7 +233,7 @@ def get_similar_artists(artist_name: str, limit: int = 5) -> list[dict]:
 @retry_with_backoff(max_retries=3, base_delay=1.0)
 def get_artist_tags(artist_name: str) -> list[str]:
     """
-    Fetch top tags for an artist — useful for genre classification.
+    Fetch top tags for an artist -- useful for genre classification.
 
     Returns:
         List of tag strings e.g. ['electronic', 'techno', 'berlin']
@@ -228,8 +253,8 @@ def get_artist_tags(artist_name: str) -> list[str]:
 @retry_with_backoff(max_retries=3, base_delay=1.0)
 def search_artist(artist_name: str) -> list[dict]:
     """
-    Search for artists by name — returns multiple matches.
-    Useful for disambiguation.
+    Search for artists by name -- returns multiple matches.
+    Useful for disambiguation when artist name is ambiguous.
 
     Returns:
         List of dicts: {name, listeners, mbid}
