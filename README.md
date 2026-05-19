@@ -1,5 +1,5 @@
 # A&R Artist Intelligence Agent
-**Autonomous artist research & signing recommendation system for Believe**
+**Autonomous artist research & signing recommendation system for independent digital music distribution**
 
 Built by: Daria Bystrova | Ironhack AI Consulting Bootcamp | Project 3
 
@@ -369,6 +369,56 @@ Should show **17 passed**.
 uvicorn api.main:app --port 8000 --log-level warning
 ```
 Keep this terminal open. Open a second terminal for commands.
+
+### 9. Expose the API publicly with ngrok (required for n8n)
+
+Your API runs on `localhost:8000` — only accessible from your own machine.
+When you connect n8n Cloud (or any external service) to your agent, it needs
+a public URL it can actually reach over the internet. This is what ngrok does.
+
+**Why ngrok?**
+ngrok creates a secure tunnel from a public URL (e.g. `https://abc123.ngrok-free.app`)
+to your local port 8000. Requests that hit the public URL are forwarded to your
+machine in real time. It is the standard developer tool for this — used universally
+when testing webhooks, APIs, and integrations locally before deploying to a server.
+
+Without ngrok, n8n Cloud sends a request to `localhost:8000` — which means
+its own localhost, not yours. The request never reaches your machine.
+
+**Setup (one time):**
+1. Download ngrok from ngrok.com/download (Windows: just a .exe file)
+2. Create a free account at ngrok.com
+3. Authenticate: `ngrok config add-authtoken YOUR_TOKEN`
+
+**Run ngrok (every session, in a separate terminal):**
+```bash
+ngrok http 8000
+```
+
+You will see:
+```
+Forwarding  https://abc123.ngrok-free.app -> http://localhost:8000
+```
+
+Copy the `https://` URL — this is your public API address.
+Use it everywhere n8n asks for your API endpoint.
+
+**Test it works:**
+```bash
+curl https://abc123.ngrok-free.app/health
+```
+Expected: `{status:ok,service:ar-agent}`
+
+**Important**: ngrok free tier gives you a random URL each session.
+Every time you restart ngrok you get a new URL and must update it in n8n.
+To get a fixed URL, upgrade to ngrok paid tier or deploy the API to a server.
+
+**Running order (every dev session):**
+```
+Terminal 1: uvicorn api.main:app --port 8000 --log-level warning
+Terminal 2: ngrok http 8000
+Terminal 3: your commands (curl, pytest, etc.)
+```
 
 ---
 

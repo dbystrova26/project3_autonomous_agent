@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Believe · A&R Intelligence</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Inter:wght@300;400;500&display=swap');
+
+  /* ── Believe brand tokens ─────────────────────────────── */
+  :root {
+    --black:   #0d0d0d;
+    --white:   #ffffff;
+    --gray-100:#f4f4f4;
+    --gray-200:#e8e8e8;
+    --gray-400:#999999;
+    --gray-600:#555555;
+
+    /* decision colours — muted, editorial */
+    --sign-bg:    #e8f2e8;
+    --sign-text:  #1a4d1a;
+    --sign-border:#a8d4a8;
+
+    --watch-bg:   #fdf4e0;
+    --watch-text: #5c3d00;
+    --watch-border:#e8c96a;
+
+    --pass-bg:    #fce8e8;
+    --pass-text:  #6b1a1a;
+    --pass-border:#e8a8a8;
+
+    --font-head: 'Syne', sans-serif;
+    --font-body: 'Inter', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--white);
+    color: var(--black);
+    font-family: var(--font-body);
+    font-weight: 300;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── NAV ─────────────────────────────────────────────── */
+  nav {
+    position: sticky; top: 0; z-index: 50;
+    background: var(--black);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 2.5rem;
+    height: 60px;
+  }
+
+  .nav-logo {
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--font-head);
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--white);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  /* The Dot — Believe's signature brand mark */
+  .dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--white);
+    flex-shrink: 0;
+    animation: breathe 3s ease-in-out infinite;
+  }
+
+  @keyframes breathe {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50%       { transform: scale(0.7); opacity: 0.5; }
+  }
+
+  .nav-right {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.7rem;
+    font-family: var(--font-body);
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--gray-400);
+  }
+
+  .status-indicator {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #4caf50;
+    flex-shrink: 0;
+  }
+
+  .status-indicator.offline { background: #f44336; }
+
+  /* ── MAIN LAYOUT ─────────────────────────────────────── */
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 5rem 2rem 6rem;
+  }
+
+  /* ── HERO ────────────────────────────────────────────── */
+  .hero {
+    margin-bottom: 4rem;
+    border-bottom: 1px solid var(--gray-200);
+    padding-bottom: 3rem;
+  }
+
+  .hero-tag {
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--gray-400);
+    margin-bottom: 1.2rem;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .hero-tag::before {
+    content: '';
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--black);
+  }
+
+  h1 {
+    font-family: var(--font-head);
+    font-weight: 800;
+    font-size: clamp(2.4rem, 5.5vw, 4rem);
+    line-height: 1.0;
+    letter-spacing: -0.02em;
+    margin-bottom: 1.2rem;
+    text-transform: uppercase;
+  }
+
+  .hero-desc {
+    font-size: 0.95rem;
+    color: var(--gray-600);
+    max-width: 520px;
+    line-height: 1.8;
+  }
+
+  /* ── FORM CARD ───────────────────────────────────────── */
+  .form-section {
+    margin-bottom: 3rem;
+  }
+
+  .section-label {
+    font-size: 0.65rem;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--gray-400);
+    margin-bottom: 1.2rem;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .section-label::before {
+    content: '';
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: var(--black);
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 220px 130px;
+    gap: 1px;
+    background: var(--black);
+    border: 1px solid var(--black);
+  }
+
+  .form-field {
+    background: var(--white);
+    display: flex; flex-direction: column;
+  }
+
+  .form-field label {
+    font-size: 0.6rem;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gray-400);
+    padding: 12px 16px 4px;
+  }
+
+  .form-field input,
+  .form-field select {
+    border: none;
+    outline: none;
+    background: transparent;
+    padding: 4px 16px 14px;
+    font-family: var(--font-body);
+    font-size: 1rem;
+    font-weight: 400;
+    color: var(--black);
+    width: 100%;
+    -webkit-appearance: none;
+  }
+
+  .form-field input::placeholder { color: var(--gray-400); }
+
+  .form-field select option { background: white; color: var(--black); }
+
+  .btn-evaluate {
+    background: var(--black);
+    color: var(--white);
+    border: none;
+    font-family: var(--font-head);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .btn-evaluate:hover { background: #222; }
+  .btn-evaluate:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-evaluate .arrow { font-size: 1.1rem; transition: transform 0.2s; }
+  .btn-evaluate:hover .arrow { transform: translateX(4px); }
+
+  /* ── LOADING ─────────────────────────────────────────── */
+  .loading {
+    display: none;
+    padding: 2.5rem 0;
+    border-top: 1px solid var(--gray-200);
+  }
+
+  .loading.show { display: block; }
+
+  .loading-header {
+    font-family: var(--font-head);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--gray-400);
+    margin-bottom: 1.2rem;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .loading-bar-track {
+    height: 2px;
+    background: var(--gray-200);
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+  }
+
+  .loading-bar-fill {
+    height: 100%;
+    background: var(--black);
+    width: 0%;
+    transition: width 12s linear;
+  }
+
+  .loading-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.8rem;
+    color: var(--gray-400);
+    transition: color 0.3s;
+  }
+
+  .step.active { color: var(--black); font-weight: 500; }
+
+  .step.done { color: var(--gray-400); }
+
+  .step-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--gray-200);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+
+  .step.active .step-dot { background: var(--black); }
+  .step.done .step-dot { background: var(--gray-400); }
+
+  /* ── RESULT ──────────────────────────────────────────── */
+  .result {
+    display: none;
+    border-top: 1px solid var(--black);
+    padding-top: 2.5rem;
+    animation: slideIn 0.35s ease;
+  }
+
+  .result.show { display: block; }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .result-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 2.5rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .result-name {
+    font-family: var(--font-head);
+    font-size: clamp(1.8rem, 4vw, 3rem);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+
+  .result-meta {
+    font-size: 0.75rem;
+    color: var(--gray-400);
+    margin-top: 6px;
+    letter-spacing: 0.05em;
+  }
+
+  .verdict {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    font-family: var(--font-head);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border: 1px solid;
+    border-radius: 2px;
+    flex-shrink: 0;
+    margin-top: 4px;
+  }
+
+  .verdict.SIGN  { background: var(--sign-bg);  color: var(--sign-text);  border-color: var(--sign-border); }
+  .verdict.WATCH { background: var(--watch-bg); color: var(--watch-text); border-color: var(--watch-border); }
+  .verdict.PASS  { background: var(--pass-bg);  color: var(--pass-text);  border-color: var(--pass-border); }
+  .verdict.ERROR { background: var(--gray-100); color: var(--gray-600);   border-color: var(--gray-200); }
+
+  .verdict-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  /* Score */
+  .score-row {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .score-num {
+    font-family: var(--font-head);
+    font-size: 3rem;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .score-right { flex: 1; }
+
+  .score-bar-track {
+    height: 3px;
+    background: var(--gray-200);
+    margin-bottom: 6px;
+    position: relative;
+  }
+
+  .score-bar-fill {
+    position: absolute; top: 0; left: 0;
+    height: 100%;
+    background: var(--black);
+    transition: width 1.2s cubic-bezier(0.25, 1, 0.5, 1);
+  }
+
+  /* threshold ticks */
+  .score-bar-track::after {
+    content: '';
+    position: absolute;
+    top: -3px; left: 40%;
+    width: 1px; height: 9px;
+    background: var(--gray-400);
+  }
+
+  .score-ticks {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.6rem;
+    color: var(--gray-400);
+    letter-spacing: 0.05em;
+  }
+
+  /* Signals */
+  .signals {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border: 1px solid var(--gray-200);
+    margin-bottom: 2.5rem;
+  }
+
+  .signal {
+    padding: 1.25rem 1.5rem;
+    border-right: 1px solid var(--gray-200);
+    border-bottom: 1px solid var(--gray-200);
+  }
+
+  .signal:nth-child(3n) { border-right: none; }
+  .signal:nth-child(n+4) { border-bottom: none; }
+
+  .signal-key {
+    font-size: 0.6rem;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gray-400);
+    margin-bottom: 6px;
+  }
+
+  .signal-val {
+    font-family: var(--font-head);
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .signal-note {
+    font-size: 0.68rem;
+    color: var(--gray-400);
+    line-height: 1.4;
+  }
+
+  /* Reasoning */
+  .reasoning {
+    border-left: 3px solid var(--black);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2.5rem;
+    background: var(--gray-100);
+  }
+
+  .reasoning-label {
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--gray-400);
+    margin-bottom: 8px;
+  }
+
+  .reasoning-text {
+    font-size: 0.9rem;
+    line-height: 1.75;
+    color: var(--black);
+  }
+
+  /* Actions */
+  .actions {
+    display: flex; gap: 10px; flex-wrap: wrap;
+  }
+
+  .btn {
+    font-family: var(--font-head);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 12px 24px;
+    border: 1px solid var(--black);
+    cursor: pointer;
+    transition: all 0.18s;
+    border-radius: 2px;
+  }
+
+  .btn-primary { background: var(--black); color: var(--white); }
+  .btn-primary:hover { background: #222; }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-secondary { background: var(--white); color: var(--black); }
+  .btn-secondary:hover { background: var(--gray-100); }
+
+  /* Error */
+  .error {
+    display: none;
+    border: 1px solid var(--pass-border);
+    background: var(--pass-bg);
+    color: var(--pass-text);
+    padding: 1rem 1.5rem;
+    font-size: 0.85rem;
+    margin-bottom: 2rem;
+    border-radius: 2px;
+  }
+
+  .error.show { display: block; }
+
+  /* Recent */
+  .recent {
+    margin-top: 4rem;
+    border-top: 1px solid var(--gray-200);
+    padding-top: 2rem;
+    display: none;
+  }
+
+  .recent.show { display: block; }
+
+  .recent-items { display: flex; flex-direction: column; gap: 1px; background: var(--gray-200); border: 1px solid var(--gray-200); }
+
+  .recent-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px;
+    background: var(--white);
+    cursor: pointer;
+    transition: background 0.15s;
+    font-size: 0.875rem;
+  }
+
+  .recent-item:hover { background: var(--gray-100); }
+
+  .recent-name { font-weight: 500; }
+  .recent-genre { color: var(--gray-400); font-size: 0.8rem; margin-left: 8px; }
+
+  .recent-right { display: flex; align-items: center; gap: 12px; }
+  .recent-score { font-size: 0.75rem; color: var(--gray-400); font-family: var(--font-body); }
+
+  .recent-verdict {
+    font-family: var(--font-head);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border: 1px solid;
+    border-radius: 2px;
+  }
+
+  .recent-verdict.SIGN  { background: var(--sign-bg);  color: var(--sign-text);  border-color: var(--sign-border); }
+  .recent-verdict.WATCH { background: var(--watch-bg); color: var(--watch-text); border-color: var(--watch-border); }
+  .recent-verdict.PASS  { background: var(--pass-bg);  color: var(--pass-text);  border-color: var(--pass-border); }
+
+  /* Mobile */
+  @media (max-width: 620px) {
+    main { padding: 3rem 1.25rem 4rem; }
+    nav { padding: 0 1.25rem; }
+    .form-grid { grid-template-columns: 1fr; }
+    .btn-evaluate { min-height: 52px; }
+    .signals { grid-template-columns: 1fr 1fr; }
+    .signal:nth-child(2n) { border-right: none; }
+    .signal:nth-child(3n) { border-right: 1px solid var(--gray-200); }
+    h1 { font-size: 2.2rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">
+    <div class="dot"></div>
+    Believe · A&R Intelligence
+  </div>
+  <div class="nav-right">
+    <div class="status-indicator" id="statusDot"></div>
+    <span id="statusText">—</span>
+  </div>
+</nav>
+
+<main>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-tag">Artist evaluation system</div>
+    <h1>Sign.<br>Watch.<br>Pass.</h1>
+    <p class="hero-desc">
+      Submit an artist name. The agent checks Spotify, Last.fm, NewsAPI,
+      and Believe's roster database — and returns a data-driven decision
+      in seconds. Major label artists are automatically flagged.
+    </p>
+  </div>
+
+  <!-- FORM -->
+  <div class="form-section">
+    <div class="section-label">New evaluation</div>
+    <div class="form-grid">
+      <div class="form-field">
+        <label>Artist name</label>
+        <input type="text" id="artistInput" placeholder="e.g. Fisher, Rema, Bicep…" autocomplete="off" />
+      </div>
+      <div class="form-field">
+        <label>Genre</label>
+        <select id="genreInput">
+          <option value="electronic">Electronic</option>
+          <option value="hip-hop">Hip-Hop</option>
+          <option value="afrobeats">Afrobeats</option>
+          <option value="pop">Pop</option>
+          <option value="indie-pop">Indie Pop</option>
+          <option value="latin">Latin</option>
+          <option value="french-rap">French Rap</option>
+          <option value="r-n-b">R&B</option>
+          <option value="metal">Metal</option>
+          <option value="bollywood">Bollywood</option>
+          <option value="punjabi">Punjabi</option>
+          <option value="techno">Techno</option>
+          <option value="house">House</option>
+          <option value="alt-pop">Alt-Pop</option>
+        </select>
+      </div>
+      <button class="btn-evaluate" id="evalBtn" onclick="runTriage()">
+        Evaluate <span class="arrow">→</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ERROR -->
+  <div class="error" id="errorMsg"></div>
+
+  <!-- LOADING -->
+  <div class="loading" id="loading">
+    <div class="loading-header">
+      <div class="dot" style="background:var(--black);width:6px;height:6px;animation:breathe 1s infinite"></div>
+      Running pipeline
+    </div>
+    <div class="loading-bar-track">
+      <div class="loading-bar-fill" id="loadBar"></div>
+    </div>
+    <div class="loading-steps">
+      <div class="step" id="s1"><div class="step-dot"></div>Spotify + Last.fm — streaming data</div>
+      <div class="step" id="s2"><div class="step-dot"></div>NewsAPI — press coverage</div>
+      <div class="step" id="s3"><div class="step-dot"></div>Major label check</div>
+      <div class="step" id="s4"><div class="step-dot"></div>Scoring and classification</div>
+      <div class="step" id="s5"><div class="step-dot"></div>Claude — reasoning</div>
+    </div>
+  </div>
+
+  <!-- RESULT -->
+  <div class="result" id="result">
+
+    <div class="result-top">
+      <div>
+        <div class="result-name" id="rName"></div>
+        <div class="result-meta" id="rMeta"></div>
+      </div>
+      <div class="verdict" id="rVerdict">
+        <span class="verdict-dot"></span>
+        <span id="rVerdictText"></span>
+      </div>
+    </div>
+
+    <div class="score-row">
+      <div class="score-num" id="rScore">—</div>
+      <div class="score-right">
+        <div class="score-bar-track">
+          <div class="score-bar-fill" id="rBar" style="width:0%"></div>
+        </div>
+        <div class="score-ticks">
+          <span>0 · Pass</span>
+          <span>40 · Watch</span>
+          <span>70 · Sign</span>
+          <span>100</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="signals">
+      <div class="signal">
+        <div class="signal-key">Monthly listeners</div>
+        <div class="signal-val" id="sListeners">—</div>
+        <div class="signal-note" id="sListenersSub"></div>
+      </div>
+      <div class="signal">
+        <div class="signal-key">Est. velocity</div>
+        <div class="signal-val" id="sVelocity">—</div>
+        <div class="signal-note">MoM growth (proxy)</div>
+      </div>
+      <div class="signal">
+        <div class="signal-key">Press articles</div>
+        <div class="signal-val" id="sPress">—</div>
+        <div class="signal-note" id="sPressSub"></div>
+      </div>
+      <div class="signal">
+        <div class="signal-key">Tier-1 outlets</div>
+        <div class="signal-val" id="sTier1">—</div>
+        <div class="signal-note">NME · Billboard · RA</div>
+      </div>
+      <div class="signal">
+        <div class="signal-key">Active markets</div>
+        <div class="signal-val" id="sMarkets">—</div>
+        <div class="signal-note">countries</div>
+      </div>
+      <div class="signal">
+        <div class="signal-key">Data source</div>
+        <div class="signal-val" id="sSource" style="font-size:0.85rem;font-family:var(--font-body)">—</div>
+        <div class="signal-note" id="sSourceNote"></div>
+      </div>
+    </div>
+
+    <div class="reasoning">
+      <div class="reasoning-label">Agent reasoning</div>
+      <div class="reasoning-text" id="rReasoning"></div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="reportBtn" onclick="generateReport()" style="display:none">
+        Generate full report →
+      </button>
+      <button class="btn btn-secondary" onclick="reset()">
+        New evaluation
+      </button>
+    </div>
+
+  </div>
+
+  <!-- RECENT -->
+  <div class="recent" id="recentSection">
+    <div class="section-label" style="margin-bottom:1rem">Recent evaluations</div>
+    <div class="recent-items" id="recentList"></div>
+  </div>
+
+</main>
+
+<script>
+  const API = 'http://127.0.0.1:8000';
+  let recent = JSON.parse(localStorage.getItem('believe_ar') || '[]');
+  let current = null;
+
+  async function checkApi() {
+    try {
+      const r = await fetch(`${API}/health`, { signal: AbortSignal.timeout(3000) });
+      if (r.ok) {
+        document.getElementById('statusDot').className = 'status-indicator';
+        document.getElementById('statusText').textContent = 'API connected';
+      } else throw 0;
+    } catch {
+      document.getElementById('statusDot').className = 'status-indicator offline';
+      document.getElementById('statusText').textContent = 'API offline';
+    }
+  }
+  checkApi();
+
+  function fmt(n) {
+    if (!n) return '—';
+    if (n >= 1e6) return (n/1e6).toFixed(1)+'M';
+    if (n >= 1e3) return (n/1e3).toFixed(0)+'K';
+    return String(n);
+  }
+
+  async function runTriage() {
+    const artist = document.getElementById('artistInput').value.trim();
+    const genre  = document.getElementById('genreInput').value;
+    if (!artist) { document.getElementById('artistInput').focus(); return; }
+
+    document.getElementById('result').classList.remove('show');
+    document.getElementById('errorMsg').classList.remove('show');
+    document.getElementById('loading').classList.add('show');
+    document.getElementById('evalBtn').disabled = true;
+
+    // Animate steps
+    const steps = ['s1','s2','s3','s4','s5'];
+    let i = 0;
+    document.getElementById('loadBar').style.width = '5%';
+    const iv = setInterval(() => {
+      if (i < steps.length) {
+        steps.forEach((s,j) => {
+          const el = document.getElementById(s);
+          if (j < i)      { el.className = 'step done'; }
+          else if (j === i){ el.className = 'step active'; }
+          else             { el.className = 'step'; }
+        });
+        document.getElementById('loadBar').style.width = (10 + i * 18) + '%';
+        i++;
+      } else clearInterval(iv);
+    }, 2800);
+
+    try {
+      const res = await fetch(`${API}/triage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ artist_name: artist, genre }),
+      });
+      clearInterval(iv);
+      document.getElementById('loadBar').style.width = '100%';
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      current = { ...data, genre };
+
+      setTimeout(() => {
+        document.getElementById('loading').classList.remove('show');
+        showResult(data, artist, genre);
+        saveRecent(artist, genre, data.decision, data.score);
+      }, 300);
+
+    } catch (err) {
+      clearInterval(iv);
+      document.getElementById('loading').classList.remove('show');
+      document.getElementById('evalBtn').disabled = false;
+      const e = document.getElementById('errorMsg');
+      e.textContent = 'Cannot reach the API. Start the server with: uvicorn api.main:app --port 8000';
+      e.classList.add('show');
+    }
+  }
+
+  function showResult(data, artist, genre) {
+    document.getElementById('evalBtn').disabled = false;
+
+    // Header
+    document.getElementById('rName').textContent = artist;
+    document.getElementById('rMeta').textContent = genre + ' · score ' + data.score + '/100';
+
+    // Verdict badge
+    const v = document.getElementById('rVerdict');
+    v.className = 'verdict ' + data.decision;
+    document.getElementById('rVerdictText').textContent = data.decision;
+
+    // Score
+    document.getElementById('rScore').textContent = data.score + '/100';
+    setTimeout(() => {
+      document.getElementById('rBar').style.width = data.score + '%';
+    }, 80);
+
+    // Signals
+    const s = data.signals || {};
+    document.getElementById('sListeners').textContent = fmt(s.monthly_listeners);
+    document.getElementById('sListenersSub').textContent = fmt(s.weekly_listeners) + ' weekly · Last.fm';
+    document.getElementById('sVelocity').textContent = (s.follower_velocity_pct||0).toFixed(1) + '%';
+    document.getElementById('sPress').textContent = (s.press_article_count||0).toString();
+    document.getElementById('sPressSub').textContent = 'last 30 days';
+    document.getElementById('sTier1').textContent = (s.press_tier1_count||0).toString();
+    document.getElementById('sMarkets').textContent = (s.active_markets||0).toString();
+    document.getElementById('sSource').textContent = s.data_source || '—';
+    document.getElementById('sSourceNote').textContent = s.major_label ? '⚠ Major label: ' + s.major_label : '';
+
+    // Reasoning
+    document.getElementById('rReasoning').textContent = data.reasoning || '—';
+
+    // Report button — only for SIGN
+    document.getElementById('reportBtn').style.display = data.decision === 'SIGN' ? 'inline-flex' : 'none';
+
+    document.getElementById('result').classList.add('show');
+    document.getElementById('result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  async function generateReport() {
+    if (!current) return;
+    const btn = document.getElementById('reportBtn');
+    btn.textContent = '⌛ Generating (~2 min)…';
+    btn.disabled = true;
+    try {
+      const res = await fetch(`${API}/research`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          artist_name: current.artist_name,
+          genre: current.genre,
+          triage_score: current.score,
+        }),
+      });
+      if (!res.ok) throw 0;
+      btn.textContent = '✓ Report saved to reports/';
+      btn.style.background = '#1a4d1a';
+      btn.style.borderColor = '#1a4d1a';
+    } catch {
+      btn.textContent = '✗ Failed — try again';
+      btn.disabled = false;
+    }
+  }
+
+  function reset() {
+    document.getElementById('result').classList.remove('show');
+    document.getElementById('errorMsg').classList.remove('show');
+    document.getElementById('artistInput').value = '';
+    document.getElementById('evalBtn').disabled = false;
+    document.getElementById('loadBar').style.width = '0%';
+    ['s1','s2','s3','s4','s5'].forEach(s => {
+      document.getElementById(s).className = 'step';
+    });
+    document.getElementById('artistInput').focus();
+  }
+
+  function saveRecent(artist, genre, decision, score) {
+    recent = recent.filter(r => r.artist !== artist);
+    recent.unshift({ artist, genre, decision, score });
+    recent = recent.slice(0, 6);
+    localStorage.setItem('believe_ar', JSON.stringify(recent));
+    renderRecent();
+  }
+
+  function renderRecent() {
+    if (!recent.length) return;
+    document.getElementById('recentSection').classList.add('show');
+    document.getElementById('recentList').innerHTML = recent.map(r => `
+      <div class="recent-item" onclick="loadRecent('${r.artist}','${r.genre}')">
+        <div>
+          <span class="recent-name">${r.artist}</span>
+          <span class="recent-genre">${r.genre}</span>
+        </div>
+        <div class="recent-right">
+          <span class="recent-score">${r.score}/100</span>
+          <span class="recent-verdict ${r.decision}">${r.decision}</span>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function loadRecent(artist, genre) {
+    document.getElementById('artistInput').value = artist;
+    document.getElementById('genreInput').value = genre;
+    runTriage();
+  }
+
+  document.getElementById('artistInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') runTriage();
+  });
+
+  renderRecent();
+</script>
+</body>
+</html>

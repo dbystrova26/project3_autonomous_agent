@@ -6,7 +6,13 @@ Fast first-pass evaluation -- runs in under 15 seconds.
 
 Data sources:
 - Spotify (primary) -- falls back to Last.fm if dev mode restrictions apply
-- Last.fm (fallback/enrichment) -- real listener counts when Spotify is limited
+- Last.fm (fallbackpython -c "
+from dotenv import load_dotenv; load_dotenv()
+from agents.triage_chain import run_triage
+
+for name, genre in [('Fisher','electronic'),('Rema','afrobeats'),('Dua Lipa','pop')]:
+    r = run_triage(name, genre)
+    print(f'{name}: {r[\"score\"]}/100 -> {r[\"decision\"]}')
 - NewsAPI -- press coverage and traction
 
 Major label check:
