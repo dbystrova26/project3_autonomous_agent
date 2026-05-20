@@ -53,14 +53,12 @@
   .sdot { width:5px; height:5px; border-radius:50%; background:#4caf50; }
   .sdot.off { background:#f44336; }
 
-  /* TWO COLUMN LAYOUT */
   .layout {
     display: grid;
     grid-template-columns: 380px 1fr;
     min-height: calc(100vh - 56px);
   }
 
-  /* LEFT PANEL */
   .left {
     border-right: 1px solid var(--g200);
     padding: 2.5rem 2rem;
@@ -113,7 +111,6 @@
   .btn-eval:hover { background: #222; }
   .btn-eval:disabled { opacity: .4; cursor: not-allowed; }
 
-  /* Loading steps */
   .loading { display: none; }
   .loading.show { display: block; }
   .progress { height: 2px; background: var(--g200); margin-bottom: 1rem; overflow: hidden; }
@@ -125,7 +122,6 @@
   .step.active .sdp { background: var(--black); }
   .step.done .sdp { background: var(--g400); }
 
-  /* Recent */
   .recent { display: none; }
   .recent.show { display: block; }
   .recent-label { font-size: 0.6rem; font-weight: 500; letter-spacing: .15em; text-transform: uppercase; color: var(--g400); margin-bottom: 8px; }
@@ -138,11 +134,7 @@
   .ri-badge.WATCH { background: var(--watch-bg); color: var(--watch-fg); border-color: var(--watch-bd); }
   .ri-badge.PASS { background: var(--pass-bg); color: var(--pass-fg); border-color: var(--pass-bd); }
 
-  /* RIGHT PANEL */
-  .right {
-    padding: 2.5rem 2.5rem;
-    overflow-y: auto;
-  }
+  .right { padding: 2.5rem 2.5rem; overflow-y: auto; }
 
   .empty-state {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -151,7 +143,6 @@
   .empty-icon { font-size: 2.5rem; opacity: .3; }
   .empty-text { font-size: 0.8rem; line-height: 1.6; max-width: 260px; }
 
-  /* Result */
   .result { display: none; }
   .result.show { display: block; animation: fadeUp .3s ease; }
   @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
@@ -172,7 +163,6 @@
   .verdict.ERROR { background: var(--g100); color: var(--g600); border-color: var(--g200); }
   .vdot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
 
-  /* Score */
   .score-row { display: flex; align-items: center; gap: 1.5rem; margin-bottom: 2rem; }
   .score-num { font-family: var(--fh); font-weight: 800; font-size: 2.8rem; letter-spacing: -.04em; line-height: 1; flex-shrink: 0; }
   .score-track { flex: 1; }
@@ -180,7 +170,6 @@
   .bar-fill { position: absolute; top: 0; left: 0; height: 100%; background: var(--black); transition: width 1.2s cubic-bezier(.25,1,.5,1); }
   .bar-ticks { display: flex; justify-content: space-between; font-size: 0.55rem; color: var(--g400); letter-spacing: .04em; }
 
-  /* Signals */
   .signals { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--g200); margin-bottom: 2rem; }
   .sig { padding: 1rem 1.25rem; border-right: 1px solid var(--g200); border-bottom: 1px solid var(--g200); }
   .sig:nth-child(3n) { border-right: none; }
@@ -189,12 +178,10 @@
   .sv { font-family: var(--fh); font-size: 1.3rem; font-weight: 700; letter-spacing: -.02em; line-height: 1; margin-bottom: 3px; }
   .sn { font-size: 0.62rem; color: var(--g400); line-height: 1.3; }
 
-  /* Reasoning */
   .reasoning { border-left: 2px solid var(--black); padding: 1rem 1.25rem; margin-bottom: 1.5rem; background: var(--g100); }
   .rl { font-size: 0.55rem; font-weight: 600; letter-spacing: .15em; text-transform: uppercase; color: var(--g400); margin-bottom: 6px; }
   .rt { font-size: 0.85rem; line-height: 1.75; color: var(--black); }
 
-  /* Actions */
   .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 2rem; }
   .btn { font-family: var(--fh); font-size: 0.68rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; padding: 10px 20px; border: 1px solid var(--black); cursor: pointer; transition: all .15s; border-radius: 2px; }
   .btn-primary { background: var(--black); color: var(--white); }
@@ -205,7 +192,6 @@
   .btn-dl { background: var(--sign-bg); color: var(--sign-fg); border-color: var(--sign-bd); }
   .btn-dl:hover { background: #d4e8d4; }
 
-  /* Report */
   .report-section { display: none; border-top: 1px solid var(--g200); padding-top: 1.5rem; margin-top: 1rem; }
   .report-section.show { display: block; animation: fadeUp .3s ease; }
   .report-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; padding-bottom: 1rem; border-bottom: 2px solid var(--black); }
@@ -228,7 +214,6 @@
   .report-body td { padding: 6px 10px; border: 1px solid var(--g200); }
   .report-body hr { border: none; border-top: 1px solid var(--g200); margin: 1.25rem 0; }
 
-  /* Error */
   .err { display: none; background: var(--pass-bg); color: var(--pass-fg); border: 1px solid var(--pass-bd); padding: .75rem 1rem; font-size: 0.8rem; border-radius: 2px; }
   .err.show { display: block; }
 
@@ -502,38 +487,39 @@ async function genReport() {
 }
 
 function dlPdf() {
-  // Browser-side PDF generation using print dialog
-  // Works on Railway without needing server-side file storage
   if (!currentReportText) return;
-
-  const printWindow = window.open('', '_blank');
-  printWindow.document.write(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>A&R Report — ${currentArtistName}</title>
-      <style>
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@300;400;500&display=swap');
-        body { font-family: 'Inter', sans-serif; font-size: 11pt; line-height: 1.7; color: #111; max-width: 700px; margin: 0 auto; padding: 2cm; }
-        h1 { font-family: 'Syne', sans-serif; font-size: 20pt; font-weight: 800; text-transform: uppercase; letter-spacing: -0.02em; margin: 1.5rem 0 0.4rem; }
-        h2 { font-family: 'Syne', sans-serif; font-size: 11pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin: 1.5rem 0 0.5rem; padding-bottom: 4px; border-bottom: 1px solid #ddd; }
-        h3 { font-family: 'Syne', sans-serif; font-size: 10pt; font-weight: 600; margin: 1rem 0 0.3rem; }
-        p { margin-bottom: 0.6rem; }
-        ul { padding-left: 1.2rem; margin-bottom: 0.6rem; }
-        li { margin-bottom: 0.2rem; }
-        strong { font-weight: 500; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 0.75rem; font-size: 9pt; }
-        th { background: #f4f4f4; padding: 5px 8px; text-align: left; font-family: 'Syne', sans-serif; font-size: 8pt; text-transform: uppercase; border: 1px solid #ddd; }
-        td { padding: 5px 8px; border: 1px solid #ddd; }
-        hr { border: none; border-top: 1px solid #eee; margin: 1.2rem 0; }
-        @media print { body { padding: 1cm; } }
-      </style>
-    </head>
-    <body>${md2html(currentReportText)}</body>
-    </html>
-  `);
-  printWindow.document.close();
-  setTimeout(() => { printWindow.print(); }, 500);
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<title>A&R Report — ${currentArtistName}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@300;400;500&display=swap');
+body { font-family: 'Inter', sans-serif; font-size: 11pt; line-height: 1.7; color: #111; max-width: 700px; margin: 0 auto; padding: 2cm; }
+h1 { font-family: 'Syne', sans-serif; font-size: 20pt; font-weight: 800; text-transform: uppercase; letter-spacing: -0.02em; margin: 1.5rem 0 0.4rem; }
+h2 { font-family: 'Syne', sans-serif; font-size: 11pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin: 1.5rem 0 0.5rem; padding-bottom: 4px; border-bottom: 1px solid #ddd; }
+h3 { font-family: 'Syne', sans-serif; font-size: 10pt; font-weight: 600; margin: 1rem 0 0.3rem; }
+p { margin-bottom: 0.6rem; }
+ul { padding-left: 1.2rem; margin-bottom: 0.6rem; }
+li { margin-bottom: 0.2rem; }
+strong { font-weight: 500; }
+table { width: 100%; border-collapse: collapse; margin-bottom: 0.75rem; font-size: 9pt; }
+th { background: #f4f4f4; padding: 5px 8px; text-align: left; font-family: 'Syne', sans-serif; font-size: 8pt; text-transform: uppercase; border: 1px solid #ddd; }
+td { padding: 5px 8px; border: 1px solid #ddd; }
+hr { border: none; border-top: 1px solid #eee; margin: 1.2rem 0; }
+@media print { body { padding: 1cm; } }
+</style>
+</head>
+<body>${md2html(currentReportText)}</body>
+</html>`;
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'AR_Report_' + currentArtistName.replace(/\s+/g, '_') + '.html';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 function closeRpt() { document.getElementById('reportSection').classList.remove('show'); }
