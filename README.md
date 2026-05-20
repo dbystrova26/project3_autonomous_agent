@@ -491,6 +491,66 @@ r-n-b, metal, bollywood, java-pop, punjabi, techno, house, alt-pop, pop, rap
 
 ---
 
+## n8n automation workflow
+
+The agent connects to n8n Cloud for fully autonomous operation.
+A webhook receives artist submissions and routes them automatically
+through the complete pipeline — no manual curl commands needed.
+
+### Workflow structure
+
+```
+Webhook → HTTP Request /triage → Switch
+                                  ├── SIGN  → Sheets log → Slack alert
+                                  ├── WATCH → Sheets log → Slack alert
+                                  └── PASS  → Sheets log (silent)
+```
+
+### How to trigger
+
+**Production (activate workflow in n8n first):**
+```bash
+curl -X POST "https://daria-b.n8n.irn.hk/webhook/ar-triage" \
+  -H "Content-Type: application/json" \
+  -d '{"artist_name": "Fisher", "genre": "electronic"}'
+```
+
+**Batch test — 15 artists at once:**
+```bash
+bash test_workflow_15_artists.sh
+```
+
+### Decision routing
+
+| Decision | Score | Action |
+|---------|-------|--------|
+| SIGN | >= 70 | Logged to Sheets + Slack alert |
+| WATCH | 40-69 | Logged to Sheets + Slack alert |
+| PASS | < 40 or major label | Logged to Sheets only |
+
+### Google Sheets — AR Agent Decision Log
+
+Every decision logs 9 columns: date, artist_name, genre, score,
+decision, reasoning, data_source, monthly_listeners, press_articles.
+
+Filter column E = WATCH to generate a WATCH list for manual review.
+
+### Slack alerts
+
+SIGN and WATCH trigger an instant message to #ar-agent-alerts from
+ar-agent-bot with artist name, score, listeners, press coverage,
+and Claude's reasoning.
+
+### n8n setup
+
+1. Create account at app.n8n.cloud
+2. Create new workflow and build nodes as described in AGENTS.md
+3. Update HTTP Request URL to your ngrok or deployment URL
+4. Connect Google Sheets and Slack credentials
+5. Activate workflow
+
+---
+
 ## Scoring logic
 
 | Dimension | Weight | Source | Signal |
