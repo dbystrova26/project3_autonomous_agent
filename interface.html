@@ -353,6 +353,39 @@
   }
   .universe-empty strong { display: block; font-family: var(--fh); font-size: 1.1rem; color: var(--black); margin-bottom: 8px; }
 
+  .add-artist-bar {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 1.25rem; flex-wrap: wrap;
+  }
+
+  .approve-btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-family: var(--fh); font-size: 0.55rem; font-weight: 700;
+    letter-spacing: .08em; text-transform: uppercase;
+    padding: 4px 10px; border: 1px solid var(--g200);
+    background: var(--white); color: var(--g400);
+    cursor: pointer; border-radius: 2px; transition: all .12s; white-space: nowrap;
+  }
+  .approve-btn:hover { border-color: var(--sign-fg); color: var(--sign-fg); }
+  .approve-btn.approved { background: var(--sign-bg); color: var(--sign-fg); border-color: var(--sign-bd); font-weight: 700; }
+  .approve-btn.rejected { background: var(--pass-bg); color: var(--pass-fg); border-color: var(--pass-bd); }
+
+  .notes-btn {
+    font-size: 0.65rem; color: var(--g400); cursor: pointer;
+    white-space: nowrap; max-width: 120px; overflow: hidden;
+    text-overflow: ellipsis; padding: 2px 0;
+    border: none; background: transparent; text-align: left;
+  }
+  .notes-btn:hover { color: var(--black); text-decoration: underline; }
+  .notes-btn.has-notes { color: var(--black); }
+
+  .del-btn {
+    width: 24px; height: 24px; border: none; background: transparent;
+    cursor: pointer; color: var(--g400); font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 2px; flex-shrink: 0;
+  }
+  .del-btn:hover { background: var(--pass-bg); color: var(--pass-fg); }
+
   .stats-bar {
     display: flex; gap: 2rem; margin-bottom: 1.5rem; flex-wrap: wrap;
   }
@@ -491,15 +524,16 @@
     <div class="universe-header">
       <div>
         <div class="universe-title">Artist Universe</div>
-        <div class="universe-subtitle">Every artist you evaluate is saved here. Pin SIGN and WATCH candidates to track them.</div>
+        <div class="universe-subtitle">All artists you track. Add any artist, pin favourites, set your own approval decision.</div>
       </div>
       <div class="universe-controls">
         <input class="search-filter" type="text" id="uniSearch" placeholder="Search artists…" oninput="renderUniverse()" />
         <button class="filter-btn active" id="fAll" onclick="setFilter('ALL')">All</button>
-        <button class="filter-btn SIGN" id="fSign" onclick="setFilter('SIGN')">Sign</button>
-        <button class="filter-btn WATCH" id="fWatch" onclick="setFilter('WATCH')">Watch</button>
-        <button class="filter-btn PASS" id="fPass" onclick="setFilter('PASS')">Pass</button>
+        <button class="filter-btn SIGN" id="fSign" onclick="setFilter('SIGN')">Agent: Sign</button>
+        <button class="filter-btn WATCH" id="fWatch" onclick="setFilter('WATCH')">Agent: Watch</button>
+        <button class="filter-btn PASS" id="fPass" onclick="setFilter('PASS')">Agent: Pass</button>
         <button class="filter-btn PINNED" id="fPinned" onclick="setFilter('PINNED')">📌 Pinned</button>
+        <button class="filter-btn" id="fApproved" onclick="setFilter('APPROVED')">✓ Approved</button>
         <select class="sort-select" id="uniSort" onchange="renderUniverse()">
           <option value="date">Sort: Recent</option>
           <option value="score">Sort: Score ↓</option>
@@ -510,39 +544,60 @@
       </div>
     </div>
 
+    <!-- Add artist manually -->
+    <div class="add-artist-bar" id="addArtistBar">
+      <input class="search-filter" type="text" id="addArtistInput" placeholder="Add artist by name…" style="width:220px"
+        onkeydown="if(event.key==='Enter')addArtistManual()" />
+      <button class="filter-btn" onclick="addArtistManual()" style="border-color:var(--black);color:var(--black)">+ Add &amp; evaluate</button>
+    </div>
+
     <!-- Stats bar -->
     <div class="stats-bar" id="statsBar"></div>
 
-    <!-- Pinned cards section -->
+    <!-- Pinned cards -->
     <div class="pinned-section hide" id="pinnedSection">
       <div class="section-label">Pinned artists</div>
       <div class="pinned-grid" id="pinnedGrid"></div>
     </div>
 
     <!-- Universe table -->
-    <div class="section-label" id="tableLabel">All evaluated artists</div>
+    <div class="section-label" id="tableLabel">All artists</div>
     <div class="universe-table-wrap">
       <table class="universe-table" id="universeTable">
         <thead>
           <tr>
-            <th style="width:32px"></th>
+            <th style="width:32px" title="Pin">📌</th>
             <th onclick="sortBy('name')">Artist</th>
             <th onclick="sortBy('score')">Score</th>
-            <th onclick="sortBy('decision')">Decision</th>
+            <th onclick="sortBy('decision')">Agent decision</th>
             <th onclick="sortBy('listeners')">Listeners</th>
             <th onclick="sortBy('velocity')">Velocity</th>
             <th onclick="sortBy('press')">Press</th>
             <th onclick="sortBy('markets')">Markets</th>
-            <th onclick="sortBy('date')">Evaluated</th>
-            <th></th>
+            <th onclick="sortBy('approved')" title="Your approval decision">Approve signing</th>
+            <th>Notes</th>
+            <th onclick="sortBy('date')">Date</th>
+            <th style="width:60px"></th>
           </tr>
         </thead>
         <tbody id="universeTbody"></tbody>
       </table>
       <div class="universe-empty hide" id="universeEmpty">
         <strong>No artists yet</strong>
-        Go to the Evaluate tab and search for an artist.<br>Every evaluation is automatically saved here.
+        Evaluate an artist on the left tab, or add one directly using the input above.
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Notes modal -->
+<div id="notesModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:100;align-items:center;justify-content:center">
+  <div style="background:white;width:460px;max-width:90vw;padding:1.5rem;border-radius:2px">
+    <div style="font-family:var(--fh);font-size:.75rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:1rem" id="notesModalTitle">Notes</div>
+    <textarea id="notesInput" rows="5" style="width:100%;border:1px solid var(--g200);padding:.75rem;font-family:var(--fb);font-size:.85rem;outline:none;resize:vertical;border-radius:2px" placeholder="Add your notes about this artist…"></textarea>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:1rem">
+      <button class="btn btn-secondary" style="padding:7px 16px;font-size:.62rem" onclick="closeNotes()">Cancel</button>
+      <button class="btn btn-primary" style="padding:7px 16px;font-size:.62rem" onclick="saveNotes()">Save</button>
     </div>
   </div>
 </div>
@@ -552,12 +607,13 @@ const API = 'https://ar-agent-zkjw.onrender.com';
 
 // ── State ──
 let recent = JSON.parse(localStorage.getItem('bv_ar') || '[]');
-let universe = JSON.parse(localStorage.getItem('bv_universe') || '[]'); // full history
-let pinned = JSON.parse(localStorage.getItem('bv_pinned') || '[]');     // pinned artist names
+let universe = JSON.parse(localStorage.getItem('bv_universe') || '[]');
+let pinned = universe.filter(u => u.pinned).map(u => u.artist); // derived from universe
 let cur = null, rptPath = null, pdfPath = null, currentReportText = '', currentArtistName = '';
 let uniFilter = 'ALL', uniSort = 'date';
-let sortDir = { name:1, score:-1, decision:1, listeners:-1, velocity:-1, press:-1, markets:-1, date:-1 };
+let sortDir = { name:1, score:-1, decision:1, listeners:-1, velocity:-1, press:-1, markets:-1, date:-1, approved:-1 };
 let lastSortCol = 'date';
+let notesTarget = null;
 
 // ── API health ──
 async function checkApi() {
@@ -710,29 +766,33 @@ function showResult(data, artist) {
 function togglePin() {
   if (!cur) return;
   const name = cur.artist_name || cur.artist;
-  if (pinned.includes(name)) {
-    pinned = pinned.filter(p => p !== name);
-    document.getElementById('pinBtn').textContent = '⊕ Pin';
-    document.getElementById('pinBtn').className = 'btn btn-pin';
-  } else {
-    pinned.push(name);
-    document.getElementById('pinBtn').textContent = '📌 Pinned';
-    document.getElementById('pinBtn').className = 'btn btn-pin pinned';
+  const u = universe.find(u => u.artist === name);
+  if (u) {
+    u.pinned = !u.pinned;
+    localStorage.setItem('bv_universe', JSON.stringify(universe));
+    // Keep pinned array in sync
+    if (u.pinned) { if (!pinned.includes(name)) pinned.push(name); }
+    else { pinned = pinned.filter(p => p !== name); }
+    localStorage.setItem('bv_pinned', JSON.stringify(pinned));
   }
-  localStorage.setItem('bv_pinned', JSON.stringify(pinned));
+  const pb = document.getElementById('pinBtn');
+  const isPinned = u?.pinned || false;
+  pb.textContent = isPinned ? '📌 Pinned' : '⊕ Pin';
+  pb.className = isPinned ? 'btn btn-pin pinned' : 'btn btn-pin';
   updateBadge();
 }
 
 function pinArtist(name) {
-  if (!pinned.includes(name)) {
-    pinned.push(name);
-    localStorage.setItem('bv_pinned', JSON.stringify(pinned));
-    updateBadge();
-    renderUniverse();
-  }
+  const u = universe.find(u => u.artist === name);
+  if (u) { u.pinned = true; localStorage.setItem('bv_universe', JSON.stringify(universe)); }
+  if (!pinned.includes(name)) { pinned.push(name); localStorage.setItem('bv_pinned', JSON.stringify(pinned)); }
+  updateBadge();
+  renderUniverse();
 }
 
 function unpinArtist(name) {
+  const u = universe.find(u => u.artist === name);
+  if (u) { u.pinned = false; localStorage.setItem('bv_universe', JSON.stringify(universe)); }
   pinned = pinned.filter(p => p !== name);
   localStorage.setItem('bv_pinned', JSON.stringify(pinned));
   updateBadge();
@@ -740,11 +800,12 @@ function unpinArtist(name) {
 }
 
 function updateBadge() {
-  document.getElementById('universe-badge').textContent = pinned.length || universe.length;
+  document.getElementById('universe-badge').textContent = universe.length;
 }
 
 // ── UNIVERSE STORAGE ──
 function saveToUniverse(artist, data) {
+  const existing = universe.find(u => u.artist.toLowerCase() === artist.toLowerCase());
   const entry = {
     artist,
     score: data.score,
@@ -759,6 +820,10 @@ function saveToUniverse(artist, data) {
     data_source: data.signals?.data_source || '',
     major_label: data.signals?.major_label || '',
     date: new Date().toISOString(),
+    // Preserve human fields if already set
+    pinned: existing?.pinned || false,
+    approved: existing?.approved ?? null,  // null=undecided, true=approve, false=reject
+    notes: existing?.notes || '',
   };
   universe = universe.filter(u => u.artist.toLowerCase() !== artist.toLowerCase());
   universe.unshift(entry);
@@ -766,19 +831,98 @@ function saveToUniverse(artist, data) {
   updateBadge();
 }
 
-// ── UNIVERSE RENDER ──
+function addArtistManual() {
+  const input = document.getElementById('addArtistInput');
+  const name = input.value.trim();
+  if (!name) { input.focus(); return; }
+
+  // Check if already exists
+  if (universe.find(u => u.artist.toLowerCase() === name.toLowerCase())) {
+    input.value = '';
+    alert(name + ' is already in your universe.');
+    return;
+  }
+
+  // Add with empty stats first
+  const entry = {
+    artist: name, score: null, decision: 'PENDING',
+    reasoning: '', listeners: 0, velocity: 0, press: 0,
+    tier1: 0, markets: 0, genre: '', data_source: '',
+    major_label: '', date: new Date().toISOString(),
+    pinned: false, approved: null, notes: '',
+  };
+  universe.unshift(entry);
+  localStorage.setItem('bv_universe', JSON.stringify(universe));
+  input.value = '';
+  updateBadge();
+  renderUniverse();
+
+  // Auto-run triage to fill stats
+  refreshArtist(name);
+}
+
+function deleteArtist(name) {
+  universe = universe.filter(u => u.artist !== name);
+  pinned = pinned.filter(p => p !== name);
+  localStorage.setItem('bv_universe', JSON.stringify(universe));
+  localStorage.setItem('bv_pinned', JSON.stringify(pinned));
+  updateBadge();
+  renderUniverse();
+}
+
+function toggleApproved(name, val) {
+  const u = universe.find(u => u.artist === name);
+  if (!u) return;
+  // Toggle: if already set to val, clear it; otherwise set
+  u.approved = u.approved === val ? null : val;
+  localStorage.setItem('bv_universe', JSON.stringify(universe));
+  renderUniverse();
+}
+
+// Notes modal state
+function openNotes(name) {
+  notesTarget = name;
+  const u = universe.find(u => u.artist === name);
+  document.getElementById('notesModalTitle').textContent = 'Notes — ' + name;
+  document.getElementById('notesInput').value = u?.notes || '';
+  const modal = document.getElementById('notesModal');
+  modal.style.display = 'flex';
+  setTimeout(() => document.getElementById('notesInput').focus(), 50);
+}
+
+function closeNotes() {
+  notesTarget = null;
+  document.getElementById('notesModal').style.display = 'none';
+}
+
+function saveNotes() {
+  if (!notesTarget) return;
+  const u = universe.find(u => u.artist === notesTarget);
+  if (u) {
+    u.notes = document.getElementById('notesInput').value.trim();
+    localStorage.setItem('bv_universe', JSON.stringify(universe));
+  }
+  closeNotes();
+  renderUniverse();
+}
+
+// Close modal on backdrop click
+document.getElementById('notesModal').addEventListener('click', function(e) {
+  if (e.target === this) closeNotes();
+});
+
+// ── UNIVERSE FILTER / SORT / RENDER ──
 function setFilter(f) {
   uniFilter = f;
   document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-  const map = { ALL:'fAll', SIGN:'fSign', WATCH:'fWatch', PASS:'fPass', PINNED:'fPinned' };
-  if (map[f]) document.getElementById(map[f]).classList.add('active');
+  const map = { ALL:'fAll', SIGN:'fSign', WATCH:'fWatch', PASS:'fPass', PINNED:'fPinned', APPROVED:'fApproved' };
+  if (map[f]) document.getElementById(map[f])?.classList.add('active');
   renderUniverse();
 }
 
 function sortBy(col) {
   if (lastSortCol === col) sortDir[col] *= -1;
   lastSortCol = col;
-  document.getElementById('uniSort').value = col === 'date' ? 'date' : col === 'score' ? 'score' : col === 'listeners' ? 'listeners' : 'date';
   renderUniverse();
 }
 
@@ -787,7 +931,8 @@ function getFiltered() {
   return universe.filter(u => {
     if (q && !u.artist.toLowerCase().includes(q)) return false;
     if (uniFilter === 'ALL') return true;
-    if (uniFilter === 'PINNED') return pinned.includes(u.artist);
+    if (uniFilter === 'PINNED') return u.pinned;
+    if (uniFilter === 'APPROVED') return u.approved === true;
     return u.decision === uniFilter;
   });
 }
@@ -798,12 +943,13 @@ function getSorted(arr) {
   return [...arr].sort((a, b) => {
     let av, bv;
     if (col === 'name') { av = a.artist.toLowerCase(); bv = b.artist.toLowerCase(); }
-    else if (col === 'score') { av = a.score; bv = b.score; }
+    else if (col === 'score') { av = a.score || 0; bv = b.score || 0; }
     else if (col === 'decision') { av = a.decision; bv = b.decision; }
     else if (col === 'listeners') { av = a.listeners; bv = b.listeners; }
     else if (col === 'velocity') { av = a.velocity; bv = b.velocity; }
     else if (col === 'press') { av = a.press; bv = b.press; }
     else if (col === 'markets') { av = a.markets; bv = b.markets; }
+    else if (col === 'approved') { av = a.approved === true ? 1 : a.approved === false ? -1 : 0; bv = b.approved === true ? 1 : b.approved === false ? -1 : 0; }
     else { av = a.date; bv = b.date; }
     if (av < bv) return -1 * dir;
     if (av > bv) return 1 * dir;
@@ -812,43 +958,51 @@ function getSorted(arr) {
 }
 
 function renderUniverse() {
-  // Stats bar
   const total = universe.length;
   const nSign = universe.filter(u => u.decision === 'SIGN').length;
   const nWatch = universe.filter(u => u.decision === 'WATCH').length;
-  const nPin = pinned.length;
+  const nApproved = universe.filter(u => u.approved === true).length;
+  const nPin = universe.filter(u => u.pinned).length;
+
   document.getElementById('statsBar').innerHTML = `
-    <div class="stat-pill"><strong>${total}</strong>Evaluated</div>
-    <div class="stat-pill sign"><strong>${nSign}</strong>Sign</div>
-    <div class="stat-pill watch"><strong>${nWatch}</strong>Watch</div>
+    <div class="stat-pill"><strong>${total}</strong>Total</div>
+    <div class="stat-pill sign"><strong>${nSign}</strong>Agent Sign</div>
+    <div class="stat-pill watch"><strong>${nWatch}</strong>Agent Watch</div>
+    <div class="stat-pill" style="color:var(--sign-fg)"><strong>${nApproved}</strong>Approved</div>
     <div class="stat-pill"><strong>${nPin}</strong>Pinned</div>
   `;
   document.getElementById('universe-badge').textContent = total;
 
   // Pinned cards
-  const pinnedData = universe.filter(u => pinned.includes(u.artist) && (u.decision === 'SIGN' || u.decision === 'WATCH'));
+  const pinnedData = universe.filter(u => u.pinned && u.decision !== 'PENDING');
   const pinnedSection = document.getElementById('pinnedSection');
   const pinnedGrid = document.getElementById('pinnedGrid');
   if (pinnedData.length) {
     pinnedSection.classList.remove('hide');
-    pinnedGrid.innerHTML = pinnedData.map(u => `
-      <div class="pinned-card ${u.decision}">
-        <button class="pc-unpin" onclick="unpinArtist('${u.artist}')" title="Unpin">×</button>
+    pinnedGrid.innerHTML = pinnedData.map(u => {
+      const approvedHtml = u.approved === true
+        ? `<span style="font-size:.65rem;color:var(--sign-fg);font-weight:600">✓ Approved</span>`
+        : u.approved === false
+        ? `<span style="font-size:.65rem;color:var(--pass-fg)">✗ Passed</span>`
+        : '';
+      return `<div class="pinned-card ${u.decision}">
+        <button class="pc-unpin" onclick="unpinArtist('${u.artist.replace(/'/g,"\\'")}')">×</button>
         <div class="pc-name">${u.artist}</div>
         <div class="pc-meta">${u.genre || '—'} · ${fmtDate(u.date)}</div>
-        <div class="pc-score ${u.decision}">${u.score}/100</div>
+        <div class="pc-score ${u.decision}">${u.score !== null ? u.score+'/100' : '…'}</div>
+        ${approvedHtml}
         <div class="pc-stats">
           <div class="pc-stat"><span>Listeners</span><span>${fmt(u.listeners)}</span></div>
-          <div class="pc-stat"><span>Velocity</span><span>${u.velocity.toFixed(1)}%</span></div>
+          <div class="pc-stat"><span>Velocity</span><span>${(u.velocity||0).toFixed(1)}%</span></div>
           <div class="pc-stat"><span>Press</span><span>${u.press} articles</span></div>
-          <div class="pc-stat"><span>Markets</span><span>${u.markets}</span></div>
         </div>
+        ${u.notes ? `<div style="font-size:.65rem;color:var(--g600);margin-top:6px;font-style:italic">${u.notes.substring(0,60)}${u.notes.length>60?'…':''}</div>` : ''}
         <div class="pc-actions">
-          <button class="pc-btn" onclick="refreshArtist('${u.artist}')">↻ Refresh</button>
-          <button class="pc-btn" onclick="evaluateArtist('${u.artist}')">→ Evaluate</button>
+          <button class="pc-btn" onclick="refreshArtist('${u.artist.replace(/'/g,"\\'")}')">↻ Refresh</button>
+          <button class="pc-btn" onclick="evaluateArtist('${u.artist.replace(/'/g,"\\'")}')">→ Evaluate</button>
         </div>
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
   } else {
     pinnedSection.classList.add('hide');
   }
@@ -866,67 +1020,42 @@ function renderUniverse() {
   empty.classList.add('hide');
 
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--g400)">No artists match this filter.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;padding:2rem;color:var(--g400)">No artists match this filter.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = filtered.map(u => {
-    const isPinned = pinned.includes(u.artist);
-    const decClass = u.decision === 'SIGN' ? 'sign-fg' : u.decision === 'WATCH' ? 'watch-fg' : 'pass-fg';
-    return `<tr class="${isPinned ? 'pinned-row' : ''}">
+    const isPinned = u.pinned;
+    const pendingStats = u.decision === 'PENDING';
+
+    const approveBtn = `<button class="approve-btn ${u.approved===true?'approved':''}" onclick="toggleApproved('${u.artist.replace(/'/g,"\\'")}', true)" title="Approve signing">✓ Sign</button>
+      <button class="approve-btn ${u.approved===false?'rejected':''}" style="margin-left:3px" onclick="toggleApproved('${u.artist.replace(/'/g,"\\'")}', false)" title="Pass">✗ Pass</button>`;
+
+    const notesBtn = `<button class="notes-btn ${u.notes?'has-notes':''}" onclick="openNotes('${u.artist.replace(/'/g,"\\'")}')">
+      ${u.notes ? u.notes.substring(0,25)+(u.notes.length>25?'…':'') : '+ add note'}
+    </button>`;
+
+    return `<tr class="${isPinned?'pinned-row':''}">
       <td>
-        <button class="ut-pin ${isPinned ? 'pinned' : ''}" onclick="${isPinned ? `unpinArtist('${u.artist}')` : `pinArtist('${u.artist}')`}" title="${isPinned ? 'Unpin' : 'Pin'}">
-          ${isPinned ? '📌' : '⊕'}
+        <button class="ut-pin ${isPinned?'pinned':''}" onclick="${isPinned?`unpinArtist('${u.artist.replace(/'/g,"\\'")}')`:  `pinArtist('${u.artist.replace(/'/g,"\\'")}')` }" title="${isPinned?'Unpin':'Pin'}">
+          ${isPinned?'📌':'⊕'}
         </button>
       </td>
-      <td><span class="ut-name" onclick="evaluateArtist('${u.artist}')">${u.artist}</span>${u.genre ? `<br><span style="font-size:.65rem;color:var(--g400)">${u.genre}</span>` : ''}</td>
-      <td><strong style="font-family:var(--fh)">${u.score}</strong><span style="color:var(--g400)">/100</span></td>
-      <td><span class="ri-badge ${u.decision}">${u.decision}</span></td>
+      <td><span class="ut-name" onclick="evaluateArtist('${u.artist.replace(/'/g,"\\'")}') ">${u.artist}</span>${u.genre?`<br><span style="font-size:.65rem;color:var(--g400)">${u.genre}</span>`:''}</td>
+      <td>${pendingStats ? '<span style="color:var(--g400);font-size:.7rem">evaluating…</span>' : `<strong style="font-family:var(--fh)">${u.score}</strong><span style="color:var(--g400)">/100</span>`}</td>
+      <td>${pendingStats ? '<span style="color:var(--g400);font-size:.7rem">—</span>' : `<span class="ri-badge ${u.decision}">${u.decision}</span>`}</td>
       <td>${fmt(u.listeners)}</td>
-      <td>${u.velocity.toFixed(1)}%</td>
-      <td>${u.press}${u.tier1 ? ` <span style="font-size:.65rem;color:var(--g400)">(${u.tier1} T1)</span>` : ''}</td>
-      <td>${u.markets}</td>
+      <td>${(u.velocity||0).toFixed(1)}%</td>
+      <td>${u.press}${u.tier1?` <span style="font-size:.65rem;color:var(--g400)">(${u.tier1} T1)</span>`:''}</td>
+      <td>${u.markets||'—'}</td>
+      <td style="white-space:nowrap">${approveBtn}</td>
+      <td>${notesBtn}</td>
       <td class="ut-date">${fmtDate(u.date)}</td>
       <td>
-        <button class="pc-btn" style="white-space:nowrap" onclick="refreshArtist('${u.artist}')">↻ Refresh</button>
+        <button class="del-btn" onclick="if(confirm('Remove ${u.artist} from universe?'))deleteArtist('${u.artist.replace(/'/g,"\\'")}') " title="Remove">✕</button>
       </td>
     </tr>`;
   }).join('');
-}
-
-// ── REFRESH ──
-async function refreshArtist(name) {
-  // Find all refresh buttons for this artist and spin them
-  const btns = [...document.querySelectorAll('.pc-btn, .pc-btn')].filter(b => b.textContent.trim() === '↻ Refresh' && b.closest('[onclick]')?.getAttribute('onclick')?.includes(name));
-  try {
-    const res = await fetch(`${API}/triage`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ artist_name: name, genre: '' }),
-    });
-    if (!res.ok) throw new Error();
-    const data = await res.json();
-    saveToUniverse(name, data);
-    renderUniverse();
-  } catch {
-    alert('Could not refresh ' + name + ' — API may be waking up, try again in 30s.');
-  }
-}
-
-// ── EVALUATE FROM UNIVERSE ──
-function evaluateArtist(name) {
-  switchTab('evaluate');
-  document.getElementById('artistInput').value = name;
-  go();
-}
-
-// ── CLEAR ──
-function clearUniverse() {
-  if (!confirm('Clear all evaluated artists? This cannot be undone.')) return;
-  universe = []; pinned = [];
-  localStorage.removeItem('bv_universe');
-  localStorage.removeItem('bv_pinned');
-  updateBadge();
-  renderUniverse();
 }
 
 // ── REPORT ──
@@ -968,26 +1097,99 @@ async function genReport() {
   }
 }
 
-function dlPdf() {
+async function dlPdf() {
   if (!currentReportText) return;
-  const html = `<!DOCTYPE html><html><head><title>A&R Report — ${currentArtistName}</title>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@300;400;500&display=swap');
-body{font-family:'Inter',sans-serif;font-size:11pt;line-height:1.7;color:#111;max-width:700px;margin:0 auto;padding:2cm}
-h1{font-family:'Syne',sans-serif;font-size:20pt;font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;margin:1.5rem 0 0.4rem}
-h2{font-family:'Syne',sans-serif;font-size:11pt;font-weight:700;text-transform:uppercase;margin:1.5rem 0 0.5rem;padding-bottom:4px;border-bottom:1px solid #ddd}
-p{margin-bottom:.6rem}ul{padding-left:1.2rem;margin-bottom:.6rem}li{margin-bottom:.2rem}
-table{width:100%;border-collapse:collapse;margin-bottom:.75rem;font-size:9pt}
-th{background:#f4f4f4;padding:5px 8px;text-align:left;border:1px solid #ddd}
-td{padding:5px 8px;border:1px solid #ddd}hr{border:none;border-top:1px solid #eee;margin:1.2rem 0}
-@media print{body{padding:1cm}}
-</style></head><body>${md2html(currentReportText)}</body></html>`;
-  const blob = new Blob([html], { type: 'text/html' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'AR_Report_' + currentArtistName.replace(/\s+/g,'_') + '.html';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+
+  const btn = document.getElementById('dlBtn');
+  const origText = btn.textContent;
+  btn.textContent = '⌛ Building PDF…';
+  btn.disabled = true;
+
+  try {
+    if (!window.jspdf) {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    }
+    if (!window.html2canvas) {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    }
+
+    // Build hidden render div
+    const renderDiv = document.createElement('div');
+    renderDiv.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:white;color:#111;font-family:Arial,sans-serif;font-size:11pt;line-height:1.7;padding:60px;box-sizing:border-box;';
+    renderDiv.innerHTML = buildReportHtml(currentReportText);
+    document.body.appendChild(renderDiv);
+
+    const canvas = await html2canvas(renderDiv, {
+      scale: 1.5, useCORS: true, backgroundColor: '#ffffff', width: 794,
+    });
+    document.body.removeChild(renderDiv);
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const margin = 40;
+    const imgW = pageW - margin * 2;
+    const totalPages = Math.ceil((canvas.height * imgW / canvas.width) / (pageH - margin * 2));
+
+    for (let i = 0; i < totalPages; i++) {
+      if (i > 0) pdf.addPage();
+      const sliceH = Math.ceil(canvas.height / totalPages);
+      const srcY = i * sliceH;
+      const pageCanvas = document.createElement('canvas');
+      pageCanvas.width = canvas.width;
+      pageCanvas.height = sliceH;
+      const ctx = pageCanvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+      ctx.drawImage(canvas, 0, -srcY);
+      const imgData = pageCanvas.toDataURL('image/jpeg', 0.92);
+      pdf.addImage(imgData, 'JPEG', margin, margin, imgW, pageH - margin * 2);
+    }
+
+    pdf.save('AR_Report_' + currentArtistName.replace(/\s+/g, '_') + '.pdf');
+
+  } catch(err) {
+    console.error('PDF error:', err);
+    // Fallback: download HTML
+    const html = buildReportHtmlFull(currentReportText, currentArtistName);
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'AR_Report_' + currentArtistName.replace(/\s+/g,'_') + '.html';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    alert('PDF generation failed — downloaded as HTML instead. Open in Chrome → Ctrl+P → Save as PDF.');
+  }
+
+  btn.textContent = origText;
+  btn.disabled = false;
+}
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector('script[src="' + src + '"]')) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = src; s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+function buildReportHtml(md) {
+  return md
+    .replace(/^# (.+)$/gm, '<h1 style="font-size:18pt;font-weight:800;text-transform:uppercase;margin:1.2rem 0 0.3rem;border-bottom:2px solid #111;padding-bottom:6px">$1</h1>')
+    .replace(/^## (.+)$/gm, '<h2 style="font-size:11pt;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:1.2rem 0 0.4rem;padding-bottom:3px;border-bottom:1px solid #ddd;color:#222">$1</h2>')
+    .replace(/^### (.+)$/gm, '<h3 style="font-size:10pt;font-weight:600;margin:.8rem 0 .2rem">$1</h3>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/^- (.+)$/gm, '<li style="margin-bottom:3px">$1</li>')
+    .replace(/(<li[^>]*>.*<\/li>\n?)+/g, s => '<ul style="padding-left:1.2rem;margin:.4rem 0">' + s + '</ul>')
+    .replace(/^---$/gm, '<hr style="border:none;border-top:1px solid #eee;margin:1rem 0">')
+    .replace(/\n\n/g, '</p><p style="margin-bottom:.5rem">');
+}
+
+function buildReportHtmlFull(md, artist) {
+  return '<!DOCTYPE html><html><head><title>A&R Report — ' + artist + '</title><style>body{font-family:Arial,sans-serif;font-size:11pt;line-height:1.7;color:#111;max-width:700px;margin:0 auto;padding:2cm}h1{font-size:18pt;font-weight:800;text-transform:uppercase;margin:1.5rem 0 0.4rem;border-bottom:2px solid #111;padding-bottom:6px}h2{font-size:11pt;font-weight:700;text-transform:uppercase;margin:1.5rem 0 0.5rem;padding-bottom:4px;border-bottom:1px solid #ddd}p{margin-bottom:.6rem}ul{padding-left:1.2rem;margin-bottom:.6rem}li{margin-bottom:.2rem}table{width:100%;border-collapse:collapse;margin-bottom:.75rem;font-size:9pt}th{background:#f4f4f4;padding:5px 8px;text-align:left;border:1px solid #ddd}td{padding:5px 8px;border:1px solid #ddd}hr{border:none;border-top:1px solid #eee;margin:1.2rem 0}@media print{body{padding:1cm}}</style></head><body><p>' + buildReportHtml(md) + '</p></body></html>';
 }
 
 function closeRpt() { document.getElementById('reportSection').classList.remove('show'); }
@@ -1006,6 +1208,42 @@ function reset() {
 }
 
 // ── RECENT ──
+// ── REFRESH / EVALUATE / CLEAR ──
+async function refreshArtist(name) {
+  // Mark as refreshing in table
+  const u = universe.find(u => u.artist === name);
+  if (u) { u.decision = 'PENDING'; renderUniverse(); }
+
+  try {
+    const res = await fetch(`${API}/triage`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ artist_name: name, genre: '' }),
+    });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    saveToUniverse(name, data);
+    renderUniverse();
+  } catch {
+    if (u) { u.decision = u.decision === 'PENDING' ? 'ERROR' : u.decision; renderUniverse(); }
+    alert('Could not refresh ' + name + ' — API may be waking up (~30s), try again.');
+  }
+}
+
+function evaluateArtist(name) {
+  switchTab('evaluate');
+  document.getElementById('artistInput').value = name;
+  go();
+}
+
+function clearUniverse() {
+  if (!confirm('Remove all artists? This cannot be undone.')) return;
+  universe = []; pinned = [];
+  localStorage.removeItem('bv_universe');
+  localStorage.removeItem('bv_pinned');
+  updateBadge();
+  renderUniverse();
+}
+
 function saveRecent(artist, decision, score) {
   recent = recent.filter(r => r.artist !== artist);
   recent.unshift({ artist, decision, score });
@@ -1036,6 +1274,7 @@ function loadRecent(artist) {
 document.getElementById('artistInput').addEventListener('keydown', e => { if (e.key==='Enter') go(); });
 renderRecent();
 updateBadge();
+// Remove duplicate notesTarget declaration if present
 </script>
 </body>
 </html>
