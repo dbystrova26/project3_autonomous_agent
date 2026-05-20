@@ -14,7 +14,7 @@ An A&R (Artists & Repertoire) manager at Believe receives hundreds of artist sub
 3. It scores the artist 0–100 and returns **PASS / WATCH / SIGN**
 4. A full structured 9-section report is available for **all three decisions** — each with tailored framing
 5. For WATCH and SIGN decisions it sends a Slack alert to the A&R manager
-6. All evaluated artists are saved to a persistent **Artist Universe** with pin/watchlist functionality
+6. All evaluated artists are saved to a persistent **Artist Universe** — add any artist manually, pin favourites, set your own approval decision (Sign / Pass), add notes, delete entries
 
 **No human effort needed until a decision actually requires human judgment.**
 
@@ -24,7 +24,7 @@ An A&R (Artists & Repertoire) manager at Believe receives hundreds of artist sub
 
 **https://ar-agent-zkjw.onrender.com**
 
-Enter any artist name. The agent checks Spotify, Last.fm, NewsAPI and Believe's roster database and returns a data-driven decision in seconds. Generate a full 9-section A&R report for any decision — SIGN, WATCH, or PASS — each with tailored framing, downloadable as HTML/PDF. The **Watchlist & Universe** tab saves every evaluation automatically, lets you pin SIGN and WATCH artists, sort and filter the full universe, and refresh stats with live data.
+Enter any artist name. The agent checks Spotify, Last.fm, NewsAPI and Believe's roster database and returns a data-driven decision in seconds. Generate a full 9-section A&R report for any decision — SIGN, WATCH, or PASS — each with tailored framing, downloadable as HTML/PDF. The **Watchlist & Universe** tab saves every evaluation automatically. Add any artist by name without evaluating first — stats are fetched automatically. Pin artists, set your own **Approve Signing** decision (independent of the agent), add notes, delete entries, sort and filter the full universe, and refresh stats with live data.
 
 > Free tier note: the service spins down after 15 min of inactivity. First request after idle takes ~30–50s to wake up.
 
