@@ -367,6 +367,13 @@ def run_triage(artist_name: str, genre: str, market: str = "") -> dict:
     # Step 1 -- Streaming data
     streaming_data, streaming_unavailable = get_streaming_data(artist_name, market)
 
+    # Auto-detect genre from Last.fm if not provided
+    if not genre and streaming_data.get("genres"):
+        genre = streaming_data["genres"][0].lower().replace(" ", "-")
+        logger.info(f"Auto-detected genre: {genre}")
+    elif not genre:
+        genre = "pop"  # safe fallback
+
     # Step 2 -- NewsAPI
     try:
         press_summary = get_press_summary(artist_name, days=30)
