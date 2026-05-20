@@ -30,14 +30,14 @@
     font-weight: 300;
     min-height: 100vh;
     display: grid;
-    grid-template-rows: 56px 1fr;
+    grid-template-rows: 56px 48px 1fr;
   }
 
   nav {
     background: var(--black);
     display: flex; align-items: center; justify-content: space-between;
     padding: 0 2rem;
-    position: sticky; top: 0; z-index: 10;
+    position: sticky; top: 0; z-index: 20;
   }
 
   .logo {
@@ -53,22 +53,47 @@
   .sdot { width:5px; height:5px; border-radius:50%; background:#4caf50; }
   .sdot.off { background:#f44336; }
 
-  .layout {
-    display: grid;
+  /* TABS */
+  .tabs {
+    background: var(--white);
+    border-bottom: 1px solid var(--g200);
+    display: flex; align-items: stretch;
+    padding: 0 2rem;
+    position: sticky; top: 56px; z-index: 10;
+  }
+  .tab {
+    font-family: var(--fh); font-size: 0.65rem; font-weight: 700;
+    letter-spacing: .1em; text-transform: uppercase;
+    padding: 0 1.5rem; border: none; background: transparent;
+    color: var(--g400); cursor: pointer; border-bottom: 2px solid transparent;
+    transition: color .15s; margin-bottom: -1px;
+  }
+  .tab:hover { color: var(--black); }
+  .tab.active { color: var(--black); border-bottom-color: var(--black); }
+  .tab-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: var(--black); color: var(--white);
+    font-size: 0.55rem; font-weight: 700; margin-left: 6px;
+  }
+
+  /* TAB PANELS */
+  .tab-panel { display: none; }
+  .tab-panel.active { display: grid; }
+
+  /* ── PANEL 1: EVALUATE ── */
+  #panel-evaluate {
     grid-template-columns: 380px 1fr;
-    min-height: calc(100vh - 56px);
+    min-height: calc(100vh - 104px);
   }
 
   .left {
     border-right: 1px solid var(--g200);
     padding: 2.5rem 2rem;
-    display: flex;
-    flex-direction: column;
-    gap: 2rem;
+    display: flex; flex-direction: column; gap: 2rem;
     background: var(--white);
-    position: sticky;
-    top: 56px;
-    height: calc(100vh - 56px);
+    position: sticky; top: 104px;
+    height: calc(100vh - 104px);
     overflow-y: auto;
   }
 
@@ -79,35 +104,16 @@
   }
   .tagline::before { content:''; width:4px; height:4px; border-radius:50%; background:var(--black); }
 
-  h1 {
-    font-family: var(--fh); font-weight: 800;
-    font-size: 2.8rem; line-height: 1.0;
-    letter-spacing: -0.03em; text-transform: uppercase;
-  }
-
+  h1 { font-family: var(--fh); font-weight: 800; font-size: 2.8rem; line-height: 1.0; letter-spacing: -0.03em; text-transform: uppercase; }
   .desc { font-size: 0.8rem; color: var(--g600); line-height: 1.7; }
 
-  .search-box {
-    display: flex; flex-direction: column; gap: 1px;
-    border: 1px solid var(--black);
-  }
-
+  .search-box { display: flex; flex-direction: column; gap: 1px; border: 1px solid var(--black); }
   .search-field { background: var(--white); display: flex; flex-direction: column; }
   .search-field label { font-size: 0.55rem; font-weight: 500; letter-spacing: .15em; text-transform: uppercase; color: var(--g400); padding: 10px 14px 3px; }
-  .search-field input {
-    border: none; outline: none; background: transparent;
-    padding: 3px 14px 12px;
-    font-family: var(--fb); font-size: 0.95rem; color: var(--black);
-  }
+  .search-field input { border: none; outline: none; background: transparent; padding: 3px 14px 12px; font-family: var(--fb); font-size: 0.95rem; color: var(--black); }
   .search-field input::placeholder { color: var(--g400); }
 
-  .btn-eval {
-    background: var(--black); color: var(--white);
-    border: none; padding: 14px;
-    font-family: var(--fh); font-size: 0.7rem; font-weight: 700;
-    letter-spacing: .12em; text-transform: uppercase;
-    cursor: pointer; transition: background .15s;
-  }
+  .btn-eval { background: var(--black); color: var(--white); border: none; padding: 14px; font-family: var(--fh); font-size: 0.7rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; cursor: pointer; transition: background .15s; }
   .btn-eval:hover { background: #222; }
   .btn-eval:disabled { opacity: .4; cursor: not-allowed; }
 
@@ -135,11 +141,7 @@
   .ri-badge.PASS { background: var(--pass-bg); color: var(--pass-fg); border-color: var(--pass-bd); }
 
   .right { padding: 2.5rem 2.5rem; overflow-y: auto; }
-
-  .empty-state {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    min-height: 400px; color: var(--g400); text-align: center; gap: 1rem;
-  }
+  .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; color: var(--g400); text-align: center; gap: 1rem; }
   .empty-icon { font-size: 2.5rem; opacity: .3; }
   .empty-text { font-size: 0.8rem; line-height: 1.6; max-width: 260px; }
 
@@ -151,12 +153,7 @@
   .artist-name { font-family: var(--fh); font-weight: 800; font-size: clamp(1.8rem, 3vw, 2.8rem); text-transform: uppercase; letter-spacing: -.02em; line-height: 1; }
   .artist-meta { font-size: 0.72rem; color: var(--g400); margin-top: 5px; }
 
-  .verdict {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 9px 18px; border: 1px solid; border-radius: 2px;
-    font-family: var(--fh); font-size: 0.75rem; font-weight: 700;
-    letter-spacing: .1em; text-transform: uppercase; flex-shrink: 0;
-  }
+  .verdict { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border: 1px solid; border-radius: 2px; font-family: var(--fh); font-size: 0.75rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; flex-shrink: 0; }
   .verdict.SIGN { background: var(--sign-bg); color: var(--sign-fg); border-color: var(--sign-bd); }
   .verdict.WATCH { background: var(--watch-bg); color: var(--watch-fg); border-color: var(--watch-bd); }
   .verdict.PASS { background: var(--pass-bg); color: var(--pass-fg); border-color: var(--pass-bd); }
@@ -191,6 +188,9 @@
   .btn-secondary:hover { background: var(--g100); }
   .btn-dl { background: var(--sign-bg); color: var(--sign-fg); border-color: var(--sign-bd); }
   .btn-dl:hover { background: #d4e8d4; }
+  .btn-pin { background: var(--g100); color: var(--black); border-color: var(--g200); }
+  .btn-pin:hover { background: var(--g200); }
+  .btn-pin.pinned { background: var(--black); color: var(--white); border-color: var(--black); }
 
   .report-section { display: none; border-top: 1px solid var(--g200); padding-top: 1.5rem; margin-top: 1rem; }
   .report-section.show { display: block; animation: fadeUp .3s ease; }
@@ -217,10 +217,159 @@
   .err { display: none; background: var(--pass-bg); color: var(--pass-fg); border: 1px solid var(--pass-bd); padding: .75rem 1rem; font-size: 0.8rem; border-radius: 2px; }
   .err.show { display: block; }
 
+  /* ── PANEL 2: UNIVERSE / WATCHLIST ── */
+  #panel-universe {
+    grid-template-columns: 1fr;
+    min-height: calc(100vh - 104px);
+  }
+
+  .universe-wrap { padding: 2rem 2.5rem; }
+
+  .universe-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;
+  }
+
+  .universe-title { font-family: var(--fh); font-weight: 800; font-size: 1.6rem; text-transform: uppercase; letter-spacing: -.02em; }
+  .universe-subtitle { font-size: 0.75rem; color: var(--g400); margin-top: 3px; }
+
+  .universe-controls {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+
+  .filter-btn {
+    font-family: var(--fh); font-size: 0.6rem; font-weight: 700;
+    letter-spacing: .08em; text-transform: uppercase;
+    padding: 6px 14px; border: 1px solid var(--g200);
+    background: var(--white); color: var(--g400);
+    cursor: pointer; border-radius: 2px; transition: all .12s;
+  }
+  .filter-btn:hover { border-color: var(--black); color: var(--black); }
+  .filter-btn.active { background: var(--black); color: var(--white); border-color: var(--black); }
+  .filter-btn.SIGN.active { background: var(--sign-fg); border-color: var(--sign-fg); }
+  .filter-btn.WATCH.active { background: var(--watch-fg); border-color: var(--watch-fg); }
+  .filter-btn.PASS.active { background: var(--pass-fg); border-color: var(--pass-fg); }
+  .filter-btn.PINNED.active { background: var(--black); border-color: var(--black); }
+
+  .sort-select {
+    font-family: var(--fb); font-size: 0.72rem; color: var(--black);
+    padding: 6px 10px; border: 1px solid var(--g200); background: var(--white);
+    cursor: pointer; outline: none; border-radius: 2px;
+  }
+
+  .search-filter {
+    font-family: var(--fb); font-size: 0.72rem;
+    padding: 6px 10px; border: 1px solid var(--g200);
+    background: var(--white); color: var(--black); outline: none; border-radius: 2px;
+    width: 160px;
+  }
+  .search-filter::placeholder { color: var(--g400); }
+
+  /* PINNED SECTION */
+  .pinned-section { margin-bottom: 2rem; }
+  .pinned-section.hide { display: none; }
+  .section-label {
+    font-size: 0.6rem; font-weight: 600; letter-spacing: .15em;
+    text-transform: uppercase; color: var(--g400); margin-bottom: 8px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .section-label::after { content:''; flex: 1; height: 1px; background: var(--g200); }
+
+  .pinned-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 10px;
+    margin-bottom: 1rem;
+  }
+
+  .pinned-card {
+    border: 1px solid var(--g200); padding: 1rem;
+    background: var(--white); position: relative;
+    transition: box-shadow .15s;
+  }
+  .pinned-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+  .pinned-card.SIGN { border-left: 3px solid var(--sign-fg); }
+  .pinned-card.WATCH { border-left: 3px solid var(--watch-fg); }
+
+  .pc-name { font-family: var(--fh); font-weight: 800; font-size: 1rem; text-transform: uppercase; margin-bottom: 3px; }
+  .pc-meta { font-size: 0.65rem; color: var(--g400); margin-bottom: 8px; }
+  .pc-score { font-family: var(--fh); font-size: 1.4rem; font-weight: 800; }
+  .pc-score.SIGN { color: var(--sign-fg); }
+  .pc-score.WATCH { color: var(--watch-fg); }
+  .pc-stats { display: flex; flex-direction: column; gap: 2px; margin-top: 8px; }
+  .pc-stat { font-size: 0.65rem; color: var(--g600); display: flex; justify-content: space-between; }
+  .pc-stat span:last-child { font-weight: 500; color: var(--black); }
+  .pc-actions { display: flex; gap: 6px; margin-top: 10px; }
+  .pc-btn {
+    font-family: var(--fh); font-size: 0.55rem; font-weight: 700;
+    letter-spacing: .08em; text-transform: uppercase;
+    padding: 4px 10px; border: 1px solid var(--g200);
+    background: var(--white); color: var(--g600);
+    cursor: pointer; border-radius: 2px; transition: all .12s; flex: 1; text-align: center;
+  }
+  .pc-btn:hover { border-color: var(--black); color: var(--black); }
+  .pc-btn.refresh-spin { opacity: .5; pointer-events: none; }
+  .pc-unpin { position: absolute; top: 8px; right: 8px; width: 20px; height: 20px; border: none; background: transparent; cursor: pointer; color: var(--g400); font-size: 14px; display: flex; align-items: center; justify-content: center; border-radius: 2px; }
+  .pc-unpin:hover { background: var(--g100); color: var(--black); }
+
+  /* UNIVERSE TABLE */
+  .universe-table-wrap { overflow-x: auto; }
+
+  .universe-table {
+    width: 100%; border-collapse: collapse;
+    font-size: 0.78rem;
+  }
+  .universe-table th {
+    background: var(--g100); padding: 8px 12px; text-align: left;
+    font-family: var(--fh); font-size: 0.55rem; font-weight: 700;
+    letter-spacing: .1em; text-transform: uppercase; color: var(--g600);
+    border-bottom: 1px solid var(--g200); cursor: pointer;
+    white-space: nowrap; user-select: none;
+  }
+  .universe-table th:hover { color: var(--black); }
+  .universe-table th.sort-asc::after { content: ' ↑'; }
+  .universe-table th.sort-desc::after { content: ' ↓'; }
+
+  .universe-table td { padding: 10px 12px; border-bottom: 1px solid var(--g200); vertical-align: middle; }
+  .universe-table tr:hover td { background: var(--g100); }
+  .universe-table tr.pinned-row td { background: #fffef5; }
+
+  .ut-name { font-weight: 500; cursor: pointer; }
+  .ut-name:hover { text-decoration: underline; }
+  .ut-pin {
+    width: 28px; height: 28px; border: 1px solid var(--g200);
+    background: var(--white); cursor: pointer; border-radius: 2px;
+    font-size: 14px; display: flex; align-items: center; justify-content: center;
+    transition: all .12s; flex-shrink: 0;
+  }
+  .ut-pin:hover { border-color: var(--black); background: var(--g100); }
+  .ut-pin.pinned { background: var(--black); border-color: var(--black); color: var(--white); }
+
+  .ut-date { font-size: 0.65rem; color: var(--g400); }
+
+  .universe-empty {
+    text-align: center; padding: 4rem 2rem;
+    color: var(--g400); font-size: 0.8rem; line-height: 1.8;
+  }
+  .universe-empty strong { display: block; font-family: var(--fh); font-size: 1.1rem; color: var(--black); margin-bottom: 8px; }
+
+  .stats-bar {
+    display: flex; gap: 2rem; margin-bottom: 1.5rem; flex-wrap: wrap;
+  }
+  .stat-pill {
+    display: flex; flex-direction: column;
+    font-size: 0.65rem; color: var(--g400);
+  }
+  .stat-pill strong { font-family: var(--fh); font-size: 1.2rem; font-weight: 800; color: var(--black); line-height: 1; }
+  .stat-pill.sign strong { color: var(--sign-fg); }
+  .stat-pill.watch strong { color: var(--watch-fg); }
+
   @media (max-width: 760px) {
-    .layout { grid-template-columns: 1fr; }
+    #panel-evaluate { grid-template-columns: 1fr; }
     .left { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--g200); }
     h1 { font-size: 2rem; }
+    .tabs { padding: 0 1rem; }
+    .universe-wrap { padding: 1.5rem 1rem; }
   }
 </style>
 </head>
@@ -231,17 +380,26 @@
   <div class="api-status"><div class="sdot" id="sdot"></div><span id="stxt">—</span></div>
 </nav>
 
-<div class="layout">
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('evaluate')" id="tab-evaluate">Evaluate</button>
+  <button class="tab" onclick="switchTab('universe')" id="tab-universe">
+    Watchlist &amp; Universe
+    <span class="tab-badge" id="universe-badge">0</span>
+  </button>
+</div>
 
-  <!-- LEFT -->
+<!-- ═══════════════════════════════════════════════════
+     PANEL 1 — EVALUATE
+═══════════════════════════════════════════════════ -->
+<div class="tab-panel active" id="panel-evaluate">
+
   <aside class="left">
     <div>
       <div class="tagline">Autonomous artist research</div>
       <h1>Sign.<br>Watch.<br>Pass.</h1>
     </div>
-
     <p class="desc">Type an artist name. The agent checks Spotify, Last.fm, NewsAPI and Believe's roster database — and returns a data-driven decision in seconds.</p>
-
     <div>
       <div class="search-box">
         <div class="search-field">
@@ -252,7 +410,6 @@
       </div>
       <div class="err" id="errMsg"></div>
     </div>
-
     <div class="loading" id="loading">
       <div class="progress"><div class="progress-fill" id="pbar"></div></div>
       <div class="steps">
@@ -263,29 +420,28 @@
         <div class="step" id="s5"><div class="sdp"></div>Claude reasoning</div>
       </div>
     </div>
-
     <div class="recent" id="recentEl">
       <div class="recent-label">Recent</div>
       <div class="recent-list" id="recentList"></div>
     </div>
   </aside>
 
-  <!-- RIGHT -->
   <main class="right">
-
     <div class="empty-state" id="emptyState">
       <div class="empty-icon">◉</div>
       <div class="empty-text">Enter an artist name on the left to get a signing recommendation.</div>
     </div>
 
     <div class="result" id="result">
-
       <div class="result-header">
         <div>
           <div class="artist-name" id="rName"></div>
           <div class="artist-meta" id="rMeta"></div>
         </div>
-        <div class="verdict" id="rVerdict"><span class="vdot"></span><span id="rVtxt"></span></div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <div class="verdict" id="rVerdict"><span class="vdot"></span><span id="rVtxt"></span></div>
+          <button class="btn btn-pin" id="pinBtn" onclick="togglePin()" style="padding:9px 14px;font-size:.62rem">⊕ Pin</button>
+        </div>
       </div>
 
       <div class="score-row">
@@ -322,16 +478,88 @@
         </div>
         <div id="rptContent"></div>
       </div>
-
     </div>
   </main>
 </div>
 
+<!-- ═══════════════════════════════════════════════════
+     PANEL 2 — UNIVERSE & WATCHLIST
+═══════════════════════════════════════════════════ -->
+<div class="tab-panel" id="panel-universe">
+  <div class="universe-wrap">
+
+    <div class="universe-header">
+      <div>
+        <div class="universe-title">Artist Universe</div>
+        <div class="universe-subtitle">Every artist you evaluate is saved here. Pin SIGN and WATCH candidates to track them.</div>
+      </div>
+      <div class="universe-controls">
+        <input class="search-filter" type="text" id="uniSearch" placeholder="Search artists…" oninput="renderUniverse()" />
+        <button class="filter-btn active" id="fAll" onclick="setFilter('ALL')">All</button>
+        <button class="filter-btn SIGN" id="fSign" onclick="setFilter('SIGN')">Sign</button>
+        <button class="filter-btn WATCH" id="fWatch" onclick="setFilter('WATCH')">Watch</button>
+        <button class="filter-btn PASS" id="fPass" onclick="setFilter('PASS')">Pass</button>
+        <button class="filter-btn PINNED" id="fPinned" onclick="setFilter('PINNED')">📌 Pinned</button>
+        <select class="sort-select" id="uniSort" onchange="renderUniverse()">
+          <option value="date">Sort: Recent</option>
+          <option value="score">Sort: Score ↓</option>
+          <option value="listeners">Sort: Listeners ↓</option>
+          <option value="name">Sort: Name A–Z</option>
+        </select>
+        <button class="filter-btn" onclick="clearUniverse()" style="color:var(--pass-fg);border-color:var(--pass-bd)">Clear all</button>
+      </div>
+    </div>
+
+    <!-- Stats bar -->
+    <div class="stats-bar" id="statsBar"></div>
+
+    <!-- Pinned cards section -->
+    <div class="pinned-section hide" id="pinnedSection">
+      <div class="section-label">Pinned artists</div>
+      <div class="pinned-grid" id="pinnedGrid"></div>
+    </div>
+
+    <!-- Universe table -->
+    <div class="section-label" id="tableLabel">All evaluated artists</div>
+    <div class="universe-table-wrap">
+      <table class="universe-table" id="universeTable">
+        <thead>
+          <tr>
+            <th style="width:32px"></th>
+            <th onclick="sortBy('name')">Artist</th>
+            <th onclick="sortBy('score')">Score</th>
+            <th onclick="sortBy('decision')">Decision</th>
+            <th onclick="sortBy('listeners')">Listeners</th>
+            <th onclick="sortBy('velocity')">Velocity</th>
+            <th onclick="sortBy('press')">Press</th>
+            <th onclick="sortBy('markets')">Markets</th>
+            <th onclick="sortBy('date')">Evaluated</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="universeTbody"></tbody>
+      </table>
+      <div class="universe-empty hide" id="universeEmpty">
+        <strong>No artists yet</strong>
+        Go to the Evaluate tab and search for an artist.<br>Every evaluation is automatically saved here.
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 const API = 'https://ar-agent-zkjw.onrender.com';
-let recent = JSON.parse(localStorage.getItem('bv_ar') || '[]');
-let cur = null, rptPath = null, pdfPath = null, currentReportText = '', currentArtistName = '';
 
+// ── State ──
+let recent = JSON.parse(localStorage.getItem('bv_ar') || '[]');
+let universe = JSON.parse(localStorage.getItem('bv_universe') || '[]'); // full history
+let pinned = JSON.parse(localStorage.getItem('bv_pinned') || '[]');     // pinned artist names
+let cur = null, rptPath = null, pdfPath = null, currentReportText = '', currentArtistName = '';
+let uniFilter = 'ALL', uniSort = 'date';
+let sortDir = { name:1, score:-1, decision:1, listeners:-1, velocity:-1, press:-1, markets:-1, date:-1 };
+let lastSortCol = 'date';
+
+// ── API health ──
 async function checkApi() {
   try {
     const r = await fetch(`${API}/health`, { signal: AbortSignal.timeout(3000) });
@@ -341,11 +569,27 @@ async function checkApi() {
 }
 checkApi();
 
+// ── Tabs ──
+function switchTab(tab) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-'+tab).classList.add('active');
+  document.getElementById('tab-'+tab).classList.add('active');
+  if (tab === 'universe') renderUniverse();
+}
+
+// ── Helpers ──
 function fmt(n) {
   if (!n) return '—';
   if (n>=1e6) return (n/1e6).toFixed(1)+'M';
   if (n>=1e3) return (n/1e3).toFixed(0)+'K';
   return String(n);
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-GB', { day:'2-digit', month:'short' });
 }
 
 function md2html(md) {
@@ -361,6 +605,7 @@ function md2html(md) {
     || md;
 }
 
+// ── EVALUATE ──
 async function go() {
   const artist = document.getElementById('artistInput').value.trim();
   if (!artist) { document.getElementById('artistInput').focus(); return; }
@@ -399,6 +644,7 @@ async function go() {
     setTimeout(() => {
       document.getElementById('loading').classList.remove('show');
       showResult(data, artist);
+      saveToUniverse(artist, data);
       saveRecent(artist, data.decision, data.score);
     }, 300);
   } catch(err) {
@@ -435,26 +681,265 @@ function showResult(data, artist) {
   document.getElementById('rR').textContent = data.reasoning||'—';
 
   const rb = document.getElementById('reportBtn');
-  rb.style.display = data.decision==='SIGN' ? 'inline-flex' : 'none';
-  rb.textContent = 'Generate full report →';
+  rb.style.display = 'inline-flex';
   rb.disabled = false;
-  rb.style.background = rb.style.borderColor = rb.style.color = '';
+  if (data.decision === 'SIGN') {
+    rb.textContent = 'Generate full report →';
+    rb.style.cssText = '';
+    rb.className = 'btn btn-primary';
+  } else if (data.decision === 'WATCH') {
+    rb.textContent = 'Generate WATCH report →';
+    rb.style.cssText = 'background:var(--watch-fg);border-color:var(--watch-fg);color:white';
+    rb.className = 'btn';
+  } else if (data.decision === 'PASS') {
+    rb.textContent = 'Generate PASS report →';
+    rb.style.cssText = 'background:var(--pass-fg);border-color:var(--pass-fg);color:white';
+    rb.className = 'btn';
+  }
+
+  // Pin button state
+  const isPinned = pinned.includes(artist);
+  const pb = document.getElementById('pinBtn');
+  pb.textContent = isPinned ? '📌 Pinned' : '⊕ Pin';
+  pb.className = isPinned ? 'btn btn-pin pinned' : 'btn btn-pin';
 
   document.getElementById('result').classList.add('show');
 }
 
+// ── PIN ──
+function togglePin() {
+  if (!cur) return;
+  const name = cur.artist_name || cur.artist;
+  if (pinned.includes(name)) {
+    pinned = pinned.filter(p => p !== name);
+    document.getElementById('pinBtn').textContent = '⊕ Pin';
+    document.getElementById('pinBtn').className = 'btn btn-pin';
+  } else {
+    pinned.push(name);
+    document.getElementById('pinBtn').textContent = '📌 Pinned';
+    document.getElementById('pinBtn').className = 'btn btn-pin pinned';
+  }
+  localStorage.setItem('bv_pinned', JSON.stringify(pinned));
+  updateBadge();
+}
+
+function pinArtist(name) {
+  if (!pinned.includes(name)) {
+    pinned.push(name);
+    localStorage.setItem('bv_pinned', JSON.stringify(pinned));
+    updateBadge();
+    renderUniverse();
+  }
+}
+
+function unpinArtist(name) {
+  pinned = pinned.filter(p => p !== name);
+  localStorage.setItem('bv_pinned', JSON.stringify(pinned));
+  updateBadge();
+  renderUniverse();
+}
+
+function updateBadge() {
+  document.getElementById('universe-badge').textContent = pinned.length || universe.length;
+}
+
+// ── UNIVERSE STORAGE ──
+function saveToUniverse(artist, data) {
+  const entry = {
+    artist,
+    score: data.score,
+    decision: data.decision,
+    reasoning: data.reasoning || '',
+    listeners: data.signals?.monthly_listeners || 0,
+    velocity: data.signals?.follower_velocity_pct || 0,
+    press: data.signals?.press_article_count || 0,
+    tier1: data.signals?.press_tier1_count || 0,
+    markets: data.signals?.active_markets || 0,
+    genre: data.signals?.genres?.[0] || '',
+    data_source: data.signals?.data_source || '',
+    major_label: data.signals?.major_label || '',
+    date: new Date().toISOString(),
+  };
+  universe = universe.filter(u => u.artist.toLowerCase() !== artist.toLowerCase());
+  universe.unshift(entry);
+  localStorage.setItem('bv_universe', JSON.stringify(universe));
+  updateBadge();
+}
+
+// ── UNIVERSE RENDER ──
+function setFilter(f) {
+  uniFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  const map = { ALL:'fAll', SIGN:'fSign', WATCH:'fWatch', PASS:'fPass', PINNED:'fPinned' };
+  if (map[f]) document.getElementById(map[f]).classList.add('active');
+  renderUniverse();
+}
+
+function sortBy(col) {
+  if (lastSortCol === col) sortDir[col] *= -1;
+  lastSortCol = col;
+  document.getElementById('uniSort').value = col === 'date' ? 'date' : col === 'score' ? 'score' : col === 'listeners' ? 'listeners' : 'date';
+  renderUniverse();
+}
+
+function getFiltered() {
+  const q = (document.getElementById('uniSearch')?.value || '').toLowerCase();
+  return universe.filter(u => {
+    if (q && !u.artist.toLowerCase().includes(q)) return false;
+    if (uniFilter === 'ALL') return true;
+    if (uniFilter === 'PINNED') return pinned.includes(u.artist);
+    return u.decision === uniFilter;
+  });
+}
+
+function getSorted(arr) {
+  const col = lastSortCol;
+  const dir = sortDir[col] || -1;
+  return [...arr].sort((a, b) => {
+    let av, bv;
+    if (col === 'name') { av = a.artist.toLowerCase(); bv = b.artist.toLowerCase(); }
+    else if (col === 'score') { av = a.score; bv = b.score; }
+    else if (col === 'decision') { av = a.decision; bv = b.decision; }
+    else if (col === 'listeners') { av = a.listeners; bv = b.listeners; }
+    else if (col === 'velocity') { av = a.velocity; bv = b.velocity; }
+    else if (col === 'press') { av = a.press; bv = b.press; }
+    else if (col === 'markets') { av = a.markets; bv = b.markets; }
+    else { av = a.date; bv = b.date; }
+    if (av < bv) return -1 * dir;
+    if (av > bv) return 1 * dir;
+    return 0;
+  });
+}
+
+function renderUniverse() {
+  // Stats bar
+  const total = universe.length;
+  const nSign = universe.filter(u => u.decision === 'SIGN').length;
+  const nWatch = universe.filter(u => u.decision === 'WATCH').length;
+  const nPin = pinned.length;
+  document.getElementById('statsBar').innerHTML = `
+    <div class="stat-pill"><strong>${total}</strong>Evaluated</div>
+    <div class="stat-pill sign"><strong>${nSign}</strong>Sign</div>
+    <div class="stat-pill watch"><strong>${nWatch}</strong>Watch</div>
+    <div class="stat-pill"><strong>${nPin}</strong>Pinned</div>
+  `;
+  document.getElementById('universe-badge').textContent = total;
+
+  // Pinned cards
+  const pinnedData = universe.filter(u => pinned.includes(u.artist) && (u.decision === 'SIGN' || u.decision === 'WATCH'));
+  const pinnedSection = document.getElementById('pinnedSection');
+  const pinnedGrid = document.getElementById('pinnedGrid');
+  if (pinnedData.length) {
+    pinnedSection.classList.remove('hide');
+    pinnedGrid.innerHTML = pinnedData.map(u => `
+      <div class="pinned-card ${u.decision}">
+        <button class="pc-unpin" onclick="unpinArtist('${u.artist}')" title="Unpin">×</button>
+        <div class="pc-name">${u.artist}</div>
+        <div class="pc-meta">${u.genre || '—'} · ${fmtDate(u.date)}</div>
+        <div class="pc-score ${u.decision}">${u.score}/100</div>
+        <div class="pc-stats">
+          <div class="pc-stat"><span>Listeners</span><span>${fmt(u.listeners)}</span></div>
+          <div class="pc-stat"><span>Velocity</span><span>${u.velocity.toFixed(1)}%</span></div>
+          <div class="pc-stat"><span>Press</span><span>${u.press} articles</span></div>
+          <div class="pc-stat"><span>Markets</span><span>${u.markets}</span></div>
+        </div>
+        <div class="pc-actions">
+          <button class="pc-btn" onclick="refreshArtist('${u.artist}')">↻ Refresh</button>
+          <button class="pc-btn" onclick="evaluateArtist('${u.artist}')">→ Evaluate</button>
+        </div>
+      </div>
+    `).join('');
+  } else {
+    pinnedSection.classList.add('hide');
+  }
+
+  // Table
+  const filtered = getSorted(getFiltered());
+  const tbody = document.getElementById('universeTbody');
+  const empty = document.getElementById('universeEmpty');
+
+  if (!universe.length) {
+    tbody.innerHTML = '';
+    empty.classList.remove('hide');
+    return;
+  }
+  empty.classList.add('hide');
+
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--g400)">No artists match this filter.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(u => {
+    const isPinned = pinned.includes(u.artist);
+    const decClass = u.decision === 'SIGN' ? 'sign-fg' : u.decision === 'WATCH' ? 'watch-fg' : 'pass-fg';
+    return `<tr class="${isPinned ? 'pinned-row' : ''}">
+      <td>
+        <button class="ut-pin ${isPinned ? 'pinned' : ''}" onclick="${isPinned ? `unpinArtist('${u.artist}')` : `pinArtist('${u.artist}')`}" title="${isPinned ? 'Unpin' : 'Pin'}">
+          ${isPinned ? '📌' : '⊕'}
+        </button>
+      </td>
+      <td><span class="ut-name" onclick="evaluateArtist('${u.artist}')">${u.artist}</span>${u.genre ? `<br><span style="font-size:.65rem;color:var(--g400)">${u.genre}</span>` : ''}</td>
+      <td><strong style="font-family:var(--fh)">${u.score}</strong><span style="color:var(--g400)">/100</span></td>
+      <td><span class="ri-badge ${u.decision}">${u.decision}</span></td>
+      <td>${fmt(u.listeners)}</td>
+      <td>${u.velocity.toFixed(1)}%</td>
+      <td>${u.press}${u.tier1 ? ` <span style="font-size:.65rem;color:var(--g400)">(${u.tier1} T1)</span>` : ''}</td>
+      <td>${u.markets}</td>
+      <td class="ut-date">${fmtDate(u.date)}</td>
+      <td>
+        <button class="pc-btn" style="white-space:nowrap" onclick="refreshArtist('${u.artist}')">↻ Refresh</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── REFRESH ──
+async function refreshArtist(name) {
+  // Find all refresh buttons for this artist and spin them
+  const btns = [...document.querySelectorAll('.pc-btn, .pc-btn')].filter(b => b.textContent.trim() === '↻ Refresh' && b.closest('[onclick]')?.getAttribute('onclick')?.includes(name));
+  try {
+    const res = await fetch(`${API}/triage`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ artist_name: name, genre: '' }),
+    });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    saveToUniverse(name, data);
+    renderUniverse();
+  } catch {
+    alert('Could not refresh ' + name + ' — API may be waking up, try again in 30s.');
+  }
+}
+
+// ── EVALUATE FROM UNIVERSE ──
+function evaluateArtist(name) {
+  switchTab('evaluate');
+  document.getElementById('artistInput').value = name;
+  go();
+}
+
+// ── CLEAR ──
+function clearUniverse() {
+  if (!confirm('Clear all evaluated artists? This cannot be undone.')) return;
+  universe = []; pinned = [];
+  localStorage.removeItem('bv_universe');
+  localStorage.removeItem('bv_pinned');
+  updateBadge();
+  renderUniverse();
+}
+
+// ── REPORT ──
 async function genReport() {
   if (!cur) return;
   const btn = document.getElementById('reportBtn');
   btn.textContent = '⌛ Generating (~2 min)…';
   btn.disabled = true;
-
   const sec = document.getElementById('reportSection');
   const cont = document.getElementById('rptContent');
   sec.classList.add('show');
   cont.innerHTML = '<div class="report-loading"><div class="spinner"></div>Fetching data from all sources… Claude is synthesising the report. This takes about 2 minutes.</div>';
   sec.scrollIntoView({ behavior:'smooth', block:'start' });
-
   try {
     const res = await fetch(`${API}/research`, {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -462,9 +947,7 @@ async function genReport() {
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    rptPath = data.report_path;
-    pdfPath = data.pdf_path;
-
+    rptPath = data.report_path; pdfPath = data.pdf_path;
     const fn = (data.report_path||'').split('\\').pop().split('/').pop();
     const cr = await fetch(`${API}/reports/${fn}/content`);
     if (cr.ok) {
@@ -473,12 +956,11 @@ async function genReport() {
       currentArtistName = cur.artist_name || cur.artist;
       cont.innerHTML = '<div class="report-body">'+md2html(cd.content)+'</div>';
     } else {
-      cont.innerHTML = '<div class="report-body"><p>Report generated and saved to <strong>reports/</strong> folder.</p></div>';
+      cont.innerHTML = '<div class="report-body"><p>Report generated.</p></div>';
     }
-
     document.getElementById('dlBtn').style.display = 'inline-flex';
     btn.textContent = '✓ Report generated';
-    btn.style.cssText = 'background:#1a4d1a;border-color:#1a4d1a;color:white';
+    btn.style.cssText = 'background:#1a4d1a;border-color:#1a4d1a;color:white;opacity:1';
   } catch(err) {
     cont.innerHTML = '<p style="color:var(--pass-fg)">Report generation failed: '+err.message+'</p>';
     btn.textContent = '✗ Failed — try again';
@@ -488,37 +970,23 @@ async function genReport() {
 
 function dlPdf() {
   if (!currentReportText) return;
-  const html = `<!DOCTYPE html>
-<html>
-<head>
-<title>A&R Report — ${currentArtistName}</title>
+  const html = `<!DOCTYPE html><html><head><title>A&R Report — ${currentArtistName}</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@300;400;500&display=swap');
-body { font-family: 'Inter', sans-serif; font-size: 11pt; line-height: 1.7; color: #111; max-width: 700px; margin: 0 auto; padding: 2cm; }
-h1 { font-family: 'Syne', sans-serif; font-size: 20pt; font-weight: 800; text-transform: uppercase; letter-spacing: -0.02em; margin: 1.5rem 0 0.4rem; }
-h2 { font-family: 'Syne', sans-serif; font-size: 11pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin: 1.5rem 0 0.5rem; padding-bottom: 4px; border-bottom: 1px solid #ddd; }
-h3 { font-family: 'Syne', sans-serif; font-size: 10pt; font-weight: 600; margin: 1rem 0 0.3rem; }
-p { margin-bottom: 0.6rem; }
-ul { padding-left: 1.2rem; margin-bottom: 0.6rem; }
-li { margin-bottom: 0.2rem; }
-strong { font-weight: 500; }
-table { width: 100%; border-collapse: collapse; margin-bottom: 0.75rem; font-size: 9pt; }
-th { background: #f4f4f4; padding: 5px 8px; text-align: left; font-family: 'Syne', sans-serif; font-size: 8pt; text-transform: uppercase; border: 1px solid #ddd; }
-td { padding: 5px 8px; border: 1px solid #ddd; }
-hr { border: none; border-top: 1px solid #eee; margin: 1.2rem 0; }
-@media print { body { padding: 1cm; } }
-</style>
-</head>
-<body>${md2html(currentReportText)}</body>
-</html>`;
+body{font-family:'Inter',sans-serif;font-size:11pt;line-height:1.7;color:#111;max-width:700px;margin:0 auto;padding:2cm}
+h1{font-family:'Syne',sans-serif;font-size:20pt;font-weight:800;text-transform:uppercase;letter-spacing:-0.02em;margin:1.5rem 0 0.4rem}
+h2{font-family:'Syne',sans-serif;font-size:11pt;font-weight:700;text-transform:uppercase;margin:1.5rem 0 0.5rem;padding-bottom:4px;border-bottom:1px solid #ddd}
+p{margin-bottom:.6rem}ul{padding-left:1.2rem;margin-bottom:.6rem}li{margin-bottom:.2rem}
+table{width:100%;border-collapse:collapse;margin-bottom:.75rem;font-size:9pt}
+th{background:#f4f4f4;padding:5px 8px;text-align:left;border:1px solid #ddd}
+td{padding:5px 8px;border:1px solid #ddd}hr{border:none;border-top:1px solid #eee;margin:1.2rem 0}
+@media print{body{padding:1cm}}
+</style></head><body>${md2html(currentReportText)}</body></html>`;
   const blob = new Blob([html], { type: 'text/html' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
-  a.download = 'AR_Report_' + currentArtistName.replace(/\s+/g, '_') + '.html';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  a.href = url; a.download = 'AR_Report_' + currentArtistName.replace(/\s+/g,'_') + '.html';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
 
@@ -537,6 +1005,7 @@ function reset() {
   document.getElementById('artistInput').focus();
 }
 
+// ── RECENT ──
 function saveRecent(artist, decision, score) {
   recent = recent.filter(r => r.artist !== artist);
   recent.unshift({ artist, decision, score });
@@ -566,6 +1035,7 @@ function loadRecent(artist) {
 
 document.getElementById('artistInput').addEventListener('keydown', e => { if (e.key==='Enter') go(); });
 renderRecent();
+updateBadge();
 </script>
 </body>
 </html>

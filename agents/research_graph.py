@@ -2,7 +2,7 @@
 agents/research_graph.py
 
 LangGraph research agent -- sequential multi-source research
-and Claude report synthesis for SIGN decisions.
+and Claude report synthesis for SIGN, WATCH, and PASS decisions.
 
 Decision logic:
 - SIGN: score >= 70, independent artist, strong signals
@@ -143,6 +143,51 @@ def detect_decision_label(report_draft: str, triage_score: int) -> str:
     return label
 
 
+def get_decision_framing(triage_score: int) -> tuple[str, str]:
+    """
+    Returns (decision, framing_instructions) based on triage score.
+    Used to give Claude the right context for each report type.
+    """
+    if triage_score >= 70:
+        decision = "SIGN"
+        framing = """SIGN FRAMING:
+This artist meets the threshold for signing. Focus the report on:
+- Why the signals justify signing NOW
+- Which Believe label tier fits (TuneCore < 500K listeners, Premium Solutions > 500K)
+- Specific next steps with timeframes (e.g. "A&R lead to contact management within 48 hours")
+- Roster matches that confirm this is a proven profile for Believe
+Section 1 must open with a clear signing recommendation and label tier."""
+
+    elif triage_score >= 40:
+        decision = "WATCH"
+        framing = """WATCH FRAMING:
+This artist does NOT yet meet the signing threshold but shows potential.
+Focus the report on:
+- What specific signals are promising (what caught our attention)
+- What is MISSING or WEAK that prevents a SIGN decision right now
+- Exactly what needs to change to become SIGN (specific thresholds: e.g. "needs to
+  reach 1M monthly listeners" or "needs tier-1 press coverage")
+- Suggested monitoring timeline (e.g. "re-evaluate in 3 months")
+- Key risk if we wait too long (could another label sign them first?)
+Section 1 must be honest: this is a WATCH, not a SIGN, and explain why clearly."""
+
+    else:
+        decision = "PASS"
+        framing = """PASS FRAMING:
+This artist does NOT meet Believe's signing criteria at this time.
+Focus the report on:
+- The primary reason(s) for passing (major label signed? Insufficient signals? Wrong market?)
+- If major label: state clearly they are unavailable for Believe
+- If insufficient signals: what specific numbers fell short and by how much
+- What would need to change in the next 6-12 months to warrant re-evaluation
+- Whether to re-evaluate at all, or close the file permanently
+Section 1 must be direct: this is a PASS, explain the key reason in the first sentence.
+Do NOT soften a PASS into a WATCH — if the score is below 40 or it's a major label
+artist, say so clearly."""
+
+    return decision, framing
+
+
 # ---------------------------------------------------------------------------
 # Nodes
 # ---------------------------------------------------------------------------
@@ -274,26 +319,25 @@ def node_synthesise(state: dict) -> dict:
     new_state = dict(state)
     llm = ChatAnthropic(model="claude-sonnet-4-5", temperature=0.2)
 
+    triage_score = state.get("triage_score", 0)
+    decision, decision_framing = get_decision_framing(triage_score)
+
     prompt = ChatPromptTemplate.from_messages([
-        ("system", """You are an A&R Intelligence Agent for Believe, a global
+        ("system", f"""You are an A&R Intelligence Agent for Believe, a global
 independent digital music company. Believe ONLY signs independent artists.
-
-
 
 Believe has two tiers for independent artists only:
 - TuneCore: self-service, flat fee, artists < 500K monthly listeners
 - Premium Solutions: full label services, artists > 500K monthly listeners
 
 TRIAGE SCORE — THIS IS THE AUTHORITATIVE DECISION:
-The triage score has already determined the recommendation:
-- Score >= 70: recommendation is SIGN
-- Score 40-69: recommendation is WATCH  
-- Score < 40: recommendation is PASS
+Triage score: {triage_score}/100 → Decision: {decision}
+
+{decision_framing}
 
 You MUST use this score to set section 8 recommendation.
 Do NOT override the triage score with your own judgment.
-Your job is to write an excellent report explaining the decision,
-not to change the decision.
+Your job is to write an excellent report explaining the decision, not to change it.
 
 Write a complete A&R report with these 9 sections:
 1. Executive summary (3-4 sentences, standalone, state recommendation clearly)
@@ -340,7 +384,7 @@ DATA GAPS / ERRORS:
         report_draft = chain.invoke({
             "artist_name": state["artist_name"],
             "genre": state["genre"],
-            "triage_score": state.get("triage_score", 0),
+            "triage_score": triage_score,
             "spotify_data": str(state.get("spotify_data", {}))[:2000],
             "news_data": str(state.get("news_data", {}))[:1000],
             "youtube_data": str(state.get("youtube_data", {}))[:500],
@@ -514,7 +558,7 @@ def node_error_report(state: dict) -> dict:
         + "\n".join(f"- {e}" for e in state.get("errors", []))
         + "\n\n## 8. Recommendation\n"
         "**Recommendation: WATCH**\n\n"
-        "Insufficient data for confident SIGN decision.\n"
+        "Insufficient data for confident decision.\n"
         "Escalated to WATCH - manual A&R review recommended.\n"
     )
 
