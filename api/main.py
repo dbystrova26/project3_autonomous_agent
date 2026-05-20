@@ -29,7 +29,7 @@ load_dotenv()
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -225,3 +225,14 @@ def get_report_content(filename: str):
         "content": content,
         "size_chars": len(content),
     }
+# ---------------------------------------------------------------------------
+# Interface
+# ---------------------------------------------------------------------------
+
+@app.get("/")
+def serve_interface():
+    """Serve the web interface at the root URL."""
+    interface_path = Path(__file__).parent.parent / "interface.html"
+    if not interface_path.exists():
+        raise HTTPException(status_code=404, detail="interface.html not found")
+    return FileResponse(str(interface_path), media_type="text/html")
