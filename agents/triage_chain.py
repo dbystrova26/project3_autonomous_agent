@@ -6,13 +6,7 @@ Fast first-pass evaluation -- runs in under 15 seconds.
 
 Data sources:
 - Spotify (primary) -- falls back to Last.fm if dev mode restrictions apply
-- Last.fm (fallbackpython -c "
-from dotenv import load_dotenv; load_dotenv()
-from agents.triage_chain import run_triage
-
-for name, genre in [('Fisher','electronic'),('Rema','afrobeats'),('Dua Lipa','pop')]:
-    r = run_triage(name, genre)
-    print(f'{name}: {r[\"score\"]}/100 -> {r[\"decision\"]}')
+- Last.fm (fallback/enrichment) -- real listener counts when Spotify is limited
 - NewsAPI -- press coverage and traction
 
 Major label check:
@@ -229,31 +223,70 @@ _llm = ChatAnthropic(model="claude-sonnet-4-5", temperature=0.1)
 def check_major_label(artist_name: str, genre: str, news_sources: list) -> dict:
     """
     Ask Claude if the artist is currently signed to a major label.
-    Uses Claude's knowledge + press source names as context.
 
     Returns:
         {"major_label": bool, "label_name": str}
+
+    Key rule: if label_name is a known major subsidiary, always return True.
+    This prevents Claude from returning False while naming a major label.
     """
+    # Known major label subsidiaries -- if Claude names any of these, force True
+    MAJOR_SUBSIDIARIES = {
+        "universal music group", "universal music", "umg",
+        "sony music entertainment", "sony music", "sony",
+        "warner music group", "warner music", "wmg",
+        "republic records", "republic",
+        "atlantic records", "atlantic",
+        "columbia records", "columbia",
+        "rca records", "rca",
+        "interscope records", "interscope",
+        "capitol records", "capitol",
+        "def jam recordings", "def jam",
+        "island records", "island",
+        "epic records", "epic",
+        "polydor records", "polydor",
+        "virgin emi", "virgin",
+        "mercury records", "mercury",
+        "motown records", "motown",
+        "arista records", "arista",
+        "jive records", "jive",
+        "syco records", "syco",
+        "parlophone", "elektra records", "elektra",
+        "asylum records", "asylum",
+        "warner records",
+    }
+
     system_msg = (
         "You are a music industry expert. "
         "Reply ONLY with JSON: major_label (true/false) and label_name (string). "
-        "An artist is major_label=true ONLY if a Big Three company "
-        "(Universal Music Group, Sony Music Entertainment, Warner Music Group) "
-        "is their PRIMARY record label that owns their masters and signed them directly. "
-        "IMPORTANT: Distribution deals do NOT count as being signed to a major. "
-        "Many independent labels distribute through major label networks - "
-        "this does NOT make the artist a major label artist. "
-        "Examples of independent artists often confused as major: "
-        "Rema (Mavin Records - independent, distributed via Universal), "
-        "Burna Boy (Atlantic distribution but African Giant label - independent), "
-        "Wizkid (Starboy - independent with Sony distribution). "
-        "Only true examples: Dua Lipa (Warner directly), Ed Sheeran (Atlantic/Warner directly). "
-        "If the artist is on an independent label that has a distribution deal, answer false. "
-        "If genuinely uncertain, answer false."
+        "Set major_label=true if the artist is CURRENTLY signed to OR distributed "
+        "primarily by Universal Music Group, Sony Music Entertainment, or Warner Music Group, "
+        "OR any of their subsidiaries including: Republic Records, Atlantic Records, "
+        "Columbia Records, RCA Records, Interscope, Capitol Records, Def Jam, Island Records, "
+        "Epic Records, Polydor, Virgin EMI, Mercury, Motown, Arista, Parlophone, Elektra, "
+        "Warner Records, Asylum Records. "
+        "CRITICAL EXAMPLES — these are ALWAYS major_label=true: "
+        "Taylor Swift (Republic Records/Universal), "
+        "Dua Lipa (Warner Records), "
+        "Drake (Republic Records/Universal), "
+        "Ed Sheeran (Atlantic/Warner), "
+        "Beyonce (Columbia/Sony), "
+        "Adele (Columbia/Sony), "
+        "Harry Styles (Columbia/Sony), "
+        "Billie Eilish (Interscope/Universal), "
+        "Ariana Grande (Republic/Universal). "
+        "These are ALWAYS major_label=false: "
+        "Fisher (Sweat It Out — independent), "
+        "Rema (Mavin Records — independent, Universal only distributes), "
+        "Burna Boy (Atlantic distribution but Bad Habit/Atlantic — check carefully), "
+        "Bicep (Ninja Tune — independent). "
+        "If label_name contains Republic, Atlantic, Columbia, RCA, Interscope, Capitol, "
+        "Def Jam, Island, Epic, Polydor, Warner, Universal, Sony — set major_label=true. "
+        "If genuinely uncertain, return false."
     )
     human_msg = (
-        "Is {artist_name} ({genre}) signed to a major label as primary label? "
-        "Press sources: {sources}. "
+        "Is {artist_name} ({genre}) currently signed to a major label? "
+        "Press sources found: {sources}. "
         "Reply with JSON only."
     )
     major_check_prompt = ChatPromptTemplate.from_messages([
@@ -268,8 +301,22 @@ def check_major_label(artist_name: str, genre: str, news_sources: list) -> dict:
             "genre": genre,
             "sources": ", ".join(news_sources[:10]) if news_sources else "no sources found"
         })
+
+        # Safety check: if label_name is a known major but major_label=False, override
+        label_name_lower = result.get("label_name", "").lower()
+        if not result.get("major_label", False):
+            for subsidiary in MAJOR_SUBSIDIARIES:
+                if subsidiary in label_name_lower:
+                    logger.warning(
+                        f"Overriding major_label=False for {artist_name} — "
+                        f"label '{result.get('label_name')}' is a known major subsidiary"
+                    )
+                    result["major_label"] = True
+                    break
+
         logger.info(f"Major label check for {artist_name}: {result}")
         return result
+
     except Exception as e:
         logger.warning(f"Major label check failed: {e} -- assuming independent")
         return {"major_label": False, "label_name": "unknown"}
@@ -352,15 +399,34 @@ def run_triage(artist_name: str, genre: str, market: str = "") -> dict:
     if major_label_result.get("major_label"):
         label_name = major_label_result.get("label_name", "a major label")
         logger.info(f"{artist_name} is on {label_name} -- forcing PASS")
+
+        # Use submitted genre as fallback if streaming genres are empty
+        genres = streaming_data.get("genres", [])
+        if not genres:
+            genres = [genre]
+
         return {
             "artist_name": artist_name,
             "score": 0,
             "decision": "PASS",
             "signals": {
                 "monthly_listeners": streaming_data.get("monthly_listeners", 0),
+                "weekly_listeners": streaming_data.get("weekly_listeners", 0),
+                "playcount": streaming_data.get("playcount", 0),
+                "follower_velocity_pct": streaming_data.get("follower_velocity_pct", 0.0),
                 "press_article_count": news_data.get("article_count", 0),
+                "press_tier1_count": news_data.get("tier1_count", 0),
+                "active_markets": streaming_data.get("active_markets", 0),
                 "major_label": label_name,
                 "data_source": streaming_data.get("source", "unknown"),
+                "genres": genres,
+                "score_breakdown": {
+                    "listeners_pts": 0,
+                    "velocity_pts": 0,
+                    "press_pts": 0,
+                    "market_pts": 0,
+                    "genre_pts": 0,
+                },
             },
             "reasoning": (
                 f"{artist_name} is currently signed to {label_name} "
