@@ -5,26 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Believe · A&R Intelligence</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Inter:wght@300;400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Inter:wght@300;400;500&display=swap');
 
   :root {
     --black: #0d0d0d;
     --white: #ffffff;
-    --gray-100: #f4f4f4;
-    --gray-200: #e8e8e8;
-    --gray-400: #999999;
-    --gray-600: #555555;
-    --sign-bg: #e8f2e8;
-    --sign-text: #1a4d1a;
-    --sign-border: #a8d4a8;
-    --watch-bg: #fdf4e0;
-    --watch-text: #5c3d00;
-    --watch-border: #e8c96a;
-    --pass-bg: #fce8e8;
-    --pass-text: #6b1a1a;
-    --pass-border: #e8a8a8;
-    --font-head: 'Syne', sans-serif;
-    --font-body: 'Inter', sans-serif;
+    --g100: #f4f4f4;
+    --g200: #e8e8e8;
+    --g400: #999;
+    --g600: #555;
+    --sign-bg: #e8f2e8; --sign-fg: #1a4d1a; --sign-bd: #a8d4a8;
+    --watch-bg: #fdf4e0; --watch-fg: #5c3d00; --watch-bd: #e8c96a;
+    --pass-bg: #fce8e8; --pass-fg: #6b1a1a; --pass-bd: #e8a8a8;
+    --fh: 'Syne', sans-serif;
+    --fb: 'Inter', sans-serif;
   }
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -32,724 +26,558 @@
   body {
     background: var(--white);
     color: var(--black);
-    font-family: var(--font-body);
+    font-family: var(--fb);
     font-weight: 300;
-    line-height: 1.6;
     min-height: 100vh;
+    display: grid;
+    grid-template-rows: 56px 1fr;
   }
 
-  /* NAV */
   nav {
-    position: sticky; top: 0; z-index: 50;
     background: var(--black);
     display: flex; align-items: center; justify-content: space-between;
-    padding: 0 2.5rem;
-    height: 60px;
+    padding: 0 2rem;
+    position: sticky; top: 0; z-index: 10;
   }
 
-  .nav-logo {
-    display: flex; align-items: center; gap: 10px;
-    font-family: var(--font-head);
-    font-weight: 700; font-size: 1rem;
-    color: var(--white);
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
+  .logo {
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--fh); font-weight: 800; font-size: 0.85rem;
+    color: var(--white); letter-spacing: 0.08em; text-transform: uppercase;
   }
 
-  .dot {
-    width: 10px; height: 10px;
-    border-radius: 50%;
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--white); animation: breathe 3s ease-in-out infinite; }
+  @keyframes breathe { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.7)} }
+
+  .api-status { display:flex; align-items:center; gap:6px; font-size:0.65rem; letter-spacing:.1em; text-transform:uppercase; color:var(--g400); }
+  .sdot { width:5px; height:5px; border-radius:50%; background:#4caf50; }
+  .sdot.off { background:#f44336; }
+
+  /* TWO COLUMN LAYOUT */
+  .layout {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    min-height: calc(100vh - 56px);
+  }
+
+  /* LEFT PANEL */
+  .left {
+    border-right: 1px solid var(--g200);
+    padding: 2.5rem 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
     background: var(--white);
-    animation: breathe 3s ease-in-out infinite;
+    position: sticky;
+    top: 56px;
+    height: calc(100vh - 56px);
+    overflow-y: auto;
   }
 
-  @keyframes breathe {
-    0%, 100% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(0.7); opacity: 0.5; }
+  .tagline {
+    font-size: 0.6rem; font-weight: 500; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--g400);
+    display: flex; align-items: center; gap: 6px;
   }
-
-  .nav-right {
-    display: flex; align-items: center; gap: 8px;
-    font-size: 0.7rem; font-family: var(--font-body);
-    letter-spacing: 0.08em; text-transform: uppercase;
-    color: var(--gray-400);
-  }
-
-  .status-dot {
-    width: 6px; height: 6px;
-    border-radius: 50%; background: #4caf50;
-  }
-  .status-dot.offline { background: #f44336; }
-
-  /* MAIN */
-  main { max-width: 960px; margin: 0 auto; padding: 5rem 2rem 6rem; }
-
-  /* HERO */
-  .hero {
-    margin-bottom: 4rem;
-    border-bottom: 1px solid var(--gray-200);
-    padding-bottom: 3rem;
-  }
-
-  .hero-tag {
-    font-size: 0.7rem; font-weight: 500;
-    letter-spacing: 0.15em; text-transform: uppercase;
-    color: var(--gray-400); margin-bottom: 1.2rem;
-    display: flex; align-items: center; gap: 8px;
-  }
-
-  .hero-tag::before {
-    content: ''; display: inline-block;
-    width: 6px; height: 6px;
-    border-radius: 50%; background: var(--black);
-  }
+  .tagline::before { content:''; width:4px; height:4px; border-radius:50%; background:var(--black); }
 
   h1 {
-    font-family: var(--font-head);
-    font-weight: 800;
-    font-size: clamp(2.4rem, 5.5vw, 4rem);
-    line-height: 1.0;
-    letter-spacing: -0.02em;
-    margin-bottom: 1.2rem;
-    text-transform: uppercase;
+    font-family: var(--fh); font-weight: 800;
+    font-size: 2.8rem; line-height: 1.0;
+    letter-spacing: -0.03em; text-transform: uppercase;
   }
 
-  .hero-desc {
-    font-size: 0.95rem; color: var(--gray-600);
-    max-width: 520px; line-height: 1.8;
-  }
+  .desc { font-size: 0.8rem; color: var(--g600); line-height: 1.7; }
 
-  /* FORM */
-  .section-label {
-    font-size: 0.65rem; font-weight: 500;
-    letter-spacing: 0.18em; text-transform: uppercase;
-    color: var(--gray-400); margin-bottom: 1.2rem;
-    display: flex; align-items: center; gap: 8px;
-  }
-  .section-label::before {
-    content: ''; width: 4px; height: 4px;
-    border-radius: 50%; background: var(--black);
-  }
-
-  .form-grid {
-    display: grid;
-    grid-template-columns: 1fr 160px;
-    gap: 1px;
-    background: var(--black);
+  .search-box {
+    display: flex; flex-direction: column; gap: 1px;
     border: 1px solid var(--black);
-    margin-bottom: 3rem;
   }
 
-  .form-field {
-    background: var(--white);
-    display: flex; flex-direction: column;
+  .search-field { background: var(--white); display: flex; flex-direction: column; }
+  .search-field label { font-size: 0.55rem; font-weight: 500; letter-spacing: .15em; text-transform: uppercase; color: var(--g400); padding: 10px 14px 3px; }
+  .search-field input {
+    border: none; outline: none; background: transparent;
+    padding: 3px 14px 12px;
+    font-family: var(--fb); font-size: 0.95rem; color: var(--black);
   }
+  .search-field input::placeholder { color: var(--g400); }
 
-  .form-field label {
-    font-size: 0.6rem; font-weight: 500;
-    letter-spacing: 0.12em; text-transform: uppercase;
-    color: var(--gray-400); padding: 12px 16px 4px;
-  }
-
-  .form-field input, .form-field select {
-    border: none; outline: none;
-    background: transparent;
-    padding: 4px 16px 14px;
-    font-family: var(--font-body);
-    font-size: 1rem; font-weight: 400;
-    color: var(--black); width: 100%;
-    -webkit-appearance: none;
-  }
-
-  .form-field input::placeholder { color: var(--gray-400); }
-  .form-field select option { background: white; }
-
-  .btn-evaluate {
+  .btn-eval {
     background: var(--black); color: var(--white);
-    border: none;
-    font-family: var(--font-head);
-    font-size: 0.75rem; font-weight: 700;
-    letter-spacing: 0.12em; text-transform: uppercase;
-    cursor: pointer; transition: background 0.2s;
-    display: flex; align-items: center;
-    justify-content: center; gap: 8px;
+    border: none; padding: 14px;
+    font-family: var(--fh); font-size: 0.7rem; font-weight: 700;
+    letter-spacing: .12em; text-transform: uppercase;
+    cursor: pointer; transition: background .15s;
   }
-  .btn-evaluate:hover { background: #222; }
-  .btn-evaluate:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-eval:hover { background: #222; }
+  .btn-eval:disabled { opacity: .4; cursor: not-allowed; }
 
-  /* LOADING */
-  .loading { display: none; padding: 2.5rem 0; border-top: 1px solid var(--gray-200); }
+  /* Loading steps */
+  .loading { display: none; }
   .loading.show { display: block; }
-  .loading-header {
-    font-family: var(--font-head); font-size: 0.7rem;
-    font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;
-    color: var(--gray-400); margin-bottom: 1.2rem;
-    display: flex; align-items: center; gap: 8px;
-  }
-  .loading-bar-track { height: 2px; background: var(--gray-200); margin-bottom: 1.5rem; overflow: hidden; }
-  .loading-bar-fill { height: 100%; background: var(--black); width: 0%; transition: width 12s linear; }
-  .loading-steps { display: flex; flex-direction: column; gap: 8px; }
-  .step { display: flex; align-items: center; gap: 12px; font-size: 0.8rem; color: var(--gray-400); transition: color 0.3s; }
+  .progress { height: 2px; background: var(--g200); margin-bottom: 1rem; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--black); width: 0%; transition: width 12s linear; }
+  .steps { display: flex; flex-direction: column; gap: 6px; }
+  .step { display: flex; align-items: center; gap: 8px; font-size: 0.72rem; color: var(--g400); }
   .step.active { color: var(--black); font-weight: 500; }
-  .step.done { color: var(--gray-400); }
-  .step-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gray-200); flex-shrink: 0; transition: background 0.3s; }
-  .step.active .step-dot { background: var(--black); }
-  .step.done .step-dot { background: var(--gray-400); }
+  .sdp { width: 5px; height: 5px; border-radius: 50%; background: var(--g200); flex-shrink: 0; }
+  .step.active .sdp { background: var(--black); }
+  .step.done .sdp { background: var(--g400); }
 
-  /* ERROR */
-  .error-msg { display: none; border: 1px solid var(--pass-border); background: var(--pass-bg); color: var(--pass-text); padding: 1rem 1.5rem; font-size: 0.85rem; margin-bottom: 2rem; border-radius: 2px; }
-  .error-msg.show { display: block; }
+  /* Recent */
+  .recent { display: none; }
+  .recent.show { display: block; }
+  .recent-label { font-size: 0.6rem; font-weight: 500; letter-spacing: .15em; text-transform: uppercase; color: var(--g400); margin-bottom: 8px; }
+  .recent-list { display: flex; flex-direction: column; gap: 1px; background: var(--g200); border: 1px solid var(--g200); }
+  .recent-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: var(--white); cursor: pointer; font-size: 0.8rem; transition: background .12s; }
+  .recent-item:hover { background: var(--g100); }
+  .ri-name { font-weight: 500; }
+  .ri-badge { font-family: var(--fh); font-size: 0.6rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 3px 8px; border: 1px solid; border-radius: 2px; }
+  .ri-badge.SIGN { background: var(--sign-bg); color: var(--sign-fg); border-color: var(--sign-bd); }
+  .ri-badge.WATCH { background: var(--watch-bg); color: var(--watch-fg); border-color: var(--watch-bd); }
+  .ri-badge.PASS { background: var(--pass-bg); color: var(--pass-fg); border-color: var(--pass-bd); }
 
-  /* RESULT */
-  .result { display: none; border-top: 1px solid var(--black); padding-top: 2.5rem; animation: slideIn 0.35s ease; }
-  .result.show { display: block; }
-  @keyframes slideIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  /* RIGHT PANEL */
+  .right {
+    padding: 2.5rem 2.5rem;
+    overflow-y: auto;
+  }
 
-  .result-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 2.5rem; gap: 1rem; flex-wrap: wrap; }
-  .result-name { font-family: var(--font-head); font-size: clamp(1.8rem, 4vw, 3rem); font-weight: 800; text-transform: uppercase; letter-spacing: -0.02em; line-height: 1; }
-  .result-meta { font-size: 0.75rem; color: var(--gray-400); margin-top: 6px; letter-spacing: 0.05em; }
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 400px; color: var(--g400); text-align: center; gap: 1rem;
+  }
+  .empty-icon { font-size: 2.5rem; opacity: .3; }
+  .empty-text { font-size: 0.8rem; line-height: 1.6; max-width: 260px; }
 
-  .verdict { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; font-family: var(--font-head); font-size: 0.8rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; border: 1px solid; border-radius: 2px; flex-shrink: 0; margin-top: 4px; }
-  .verdict.SIGN { background: var(--sign-bg); color: var(--sign-text); border-color: var(--sign-border); }
-  .verdict.WATCH { background: var(--watch-bg); color: var(--watch-text); border-color: var(--watch-border); }
-  .verdict.PASS { background: var(--pass-bg); color: var(--pass-text); border-color: var(--pass-border); }
-  .verdict.ERROR { background: var(--gray-100); color: var(--gray-600); border-color: var(--gray-200); }
-  .verdict-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  /* Result */
+  .result { display: none; }
+  .result.show { display: block; animation: fadeUp .3s ease; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
 
-  /* SCORE */
-  .score-row { display: flex; align-items: center; gap: 1.5rem; margin-bottom: 2.5rem; }
-  .score-num { font-family: var(--font-head); font-size: 3rem; font-weight: 800; letter-spacing: -0.04em; line-height: 1; flex-shrink: 0; }
-  .score-right { flex: 1; }
-  .score-bar-track { height: 3px; background: var(--gray-200); margin-bottom: 6px; position: relative; }
-  .score-bar-fill { position: absolute; top: 0; left: 0; height: 100%; background: var(--black); transition: width 1.2s cubic-bezier(0.25, 1, 0.5, 1); }
-  .score-ticks { display: flex; justify-content: space-between; font-size: 0.6rem; color: var(--gray-400); letter-spacing: 0.05em; }
+  .result-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 2rem; gap: 1rem; }
+  .artist-name { font-family: var(--fh); font-weight: 800; font-size: clamp(1.8rem, 3vw, 2.8rem); text-transform: uppercase; letter-spacing: -.02em; line-height: 1; }
+  .artist-meta { font-size: 0.72rem; color: var(--g400); margin-top: 5px; }
 
-  /* SIGNALS */
-  .signals { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--gray-200); margin-bottom: 2.5rem; }
-  .signal { padding: 1.25rem 1.5rem; border-right: 1px solid var(--gray-200); border-bottom: 1px solid var(--gray-200); }
-  .signal:nth-child(3n) { border-right: none; }
-  .signal:nth-child(n+4) { border-bottom: none; }
-  .signal-key { font-size: 0.6rem; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gray-400); margin-bottom: 6px; }
-  .signal-val { font-family: var(--font-head); font-size: 1.4rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1; margin-bottom: 4px; }
-  .signal-note { font-size: 0.68rem; color: var(--gray-400); line-height: 1.4; }
+  .verdict {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 18px; border: 1px solid; border-radius: 2px;
+    font-family: var(--fh); font-size: 0.75rem; font-weight: 700;
+    letter-spacing: .1em; text-transform: uppercase; flex-shrink: 0;
+  }
+  .verdict.SIGN { background: var(--sign-bg); color: var(--sign-fg); border-color: var(--sign-bd); }
+  .verdict.WATCH { background: var(--watch-bg); color: var(--watch-fg); border-color: var(--watch-bd); }
+  .verdict.PASS { background: var(--pass-bg); color: var(--pass-fg); border-color: var(--pass-bd); }
+  .verdict.ERROR { background: var(--g100); color: var(--g600); border-color: var(--g200); }
+  .vdot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
 
-  /* REASONING */
-  .reasoning { border-left: 3px solid var(--black); padding: 1.25rem 1.5rem; margin-bottom: 2.5rem; background: var(--gray-100); }
-  .reasoning-label { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gray-400); margin-bottom: 8px; }
-  .reasoning-text { font-size: 0.9rem; line-height: 1.75; color: var(--black); }
+  /* Score */
+  .score-row { display: flex; align-items: center; gap: 1.5rem; margin-bottom: 2rem; }
+  .score-num { font-family: var(--fh); font-weight: 800; font-size: 2.8rem; letter-spacing: -.04em; line-height: 1; flex-shrink: 0; }
+  .score-track { flex: 1; }
+  .bar-bg { height: 3px; background: var(--g200); position: relative; margin-bottom: 5px; }
+  .bar-fill { position: absolute; top: 0; left: 0; height: 100%; background: var(--black); transition: width 1.2s cubic-bezier(.25,1,.5,1); }
+  .bar-ticks { display: flex; justify-content: space-between; font-size: 0.55rem; color: var(--g400); letter-spacing: .04em; }
 
-  /* ACTIONS */
-  .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 2.5rem; }
-  .btn { font-family: var(--font-head); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 12px 24px; border: 1px solid var(--black); cursor: pointer; transition: all 0.18s; border-radius: 2px; }
+  /* Signals */
+  .signals { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--g200); margin-bottom: 2rem; }
+  .sig { padding: 1rem 1.25rem; border-right: 1px solid var(--g200); border-bottom: 1px solid var(--g200); }
+  .sig:nth-child(3n) { border-right: none; }
+  .sig:nth-child(n+4) { border-bottom: none; }
+  .sk { font-size: 0.55rem; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--g400); margin-bottom: 5px; }
+  .sv { font-family: var(--fh); font-size: 1.3rem; font-weight: 700; letter-spacing: -.02em; line-height: 1; margin-bottom: 3px; }
+  .sn { font-size: 0.62rem; color: var(--g400); line-height: 1.3; }
+
+  /* Reasoning */
+  .reasoning { border-left: 2px solid var(--black); padding: 1rem 1.25rem; margin-bottom: 1.5rem; background: var(--g100); }
+  .rl { font-size: 0.55rem; font-weight: 600; letter-spacing: .15em; text-transform: uppercase; color: var(--g400); margin-bottom: 6px; }
+  .rt { font-size: 0.85rem; line-height: 1.75; color: var(--black); }
+
+  /* Actions */
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 2rem; }
+  .btn { font-family: var(--fh); font-size: 0.68rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; padding: 10px 20px; border: 1px solid var(--black); cursor: pointer; transition: all .15s; border-radius: 2px; }
   .btn-primary { background: var(--black); color: var(--white); }
   .btn-primary:hover { background: #222; }
-  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-primary:disabled { opacity: .4; cursor: not-allowed; }
   .btn-secondary { background: var(--white); color: var(--black); }
-  .btn-secondary:hover { background: var(--gray-100); }
-  .btn-download { background: var(--sign-bg); color: var(--sign-text); border-color: var(--sign-border); }
-  .btn-download:hover { background: #d4e8d4; }
+  .btn-secondary:hover { background: var(--g100); }
+  .btn-dl { background: var(--sign-bg); color: var(--sign-fg); border-color: var(--sign-bd); }
+  .btn-dl:hover { background: #d4e8d4; }
 
-  /* REPORT PREVIEW */
-  .report-section { display: none; border-top: 1px solid var(--gray-200); padding-top: 2rem; margin-top: 2rem; }
-  .report-section.show { display: block; animation: slideIn 0.35s ease; }
-  .report-loading { padding: 2rem; text-align: center; color: var(--gray-400); font-size: 0.85rem; }
-  .report-loading .spinner { width: 24px; height: 24px; border: 2px solid var(--gray-200); border-top-color: var(--black); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 1rem; }
-  @keyframes spin { to { transform: rotate(360deg); } }
+  /* Report */
+  .report-section { display: none; border-top: 1px solid var(--g200); padding-top: 1.5rem; margin-top: 1rem; }
+  .report-section.show { display: block; animation: fadeUp .3s ease; }
+  .report-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; padding-bottom: 1rem; border-bottom: 2px solid var(--black); }
+  .report-label { font-family: var(--fh); font-size: 0.6rem; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: var(--g400); }
+  .report-btns { display: flex; gap: 8px; }
+  .report-loading { padding: 2rem; text-align: center; color: var(--g400); font-size: 0.8rem; }
+  .spinner { width: 20px; height: 20px; border: 1.5px solid var(--g200); border-top-color: var(--black); border-radius: 50%; animation: spin .7s linear infinite; margin: 0 auto .75rem; }
+  @keyframes spin { to{transform:rotate(360deg)} }
 
-  .report-content {
-    font-family: var(--font-body);
-    font-size: 0.875rem;
-    line-height: 1.8;
-    color: var(--black);
-  }
-  .report-content h1 { font-family: var(--font-head); font-size: 1.5rem; font-weight: 800; text-transform: uppercase; letter-spacing: -0.01em; margin-bottom: 0.5rem; margin-top: 2rem; }
-  .report-content h2 { font-family: var(--font-head); font-size: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem; margin-top: 1.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--gray-200); }
-  .report-content h3 { font-family: var(--font-head); font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem; margin-top: 1rem; }
-  .report-content p { margin-bottom: 0.75rem; }
-  .report-content ul { margin-bottom: 0.75rem; padding-left: 1.5rem; }
-  .report-content li { margin-bottom: 0.25rem; }
-  .report-content strong { font-weight: 500; }
-  .report-content table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; font-size: 0.8rem; }
-  .report-content th { background: var(--gray-100); padding: 8px 12px; text-align: left; font-weight: 500; border: 1px solid var(--gray-200); font-family: var(--font-head); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; }
-  .report-content td { padding: 8px 12px; border: 1px solid var(--gray-200); }
-  .report-content hr { border: none; border-top: 1px solid var(--gray-200); margin: 1.5rem 0; }
-  .report-content code { font-family: 'Courier New', monospace; font-size: 0.8rem; background: var(--gray-100); padding: 2px 6px; border-radius: 2px; }
+  .report-body { font-family: var(--fb); font-size: 0.82rem; line-height: 1.8; color: var(--black); }
+  .report-body h1 { font-family: var(--fh); font-size: 1.3rem; font-weight: 800; text-transform: uppercase; margin: 1.5rem 0 .4rem; }
+  .report-body h2 { font-family: var(--fh); font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin: 1.25rem 0 .5rem; padding-bottom: .4rem; border-bottom: 1px solid var(--g200); }
+  .report-body h3 { font-family: var(--fh); font-size: 0.8rem; font-weight: 600; margin: 1rem 0 .3rem; }
+  .report-body p { margin-bottom: .6rem; }
+  .report-body ul { margin-bottom: .6rem; padding-left: 1.2rem; }
+  .report-body li { margin-bottom: .2rem; }
+  .report-body strong { font-weight: 500; }
+  .report-body table { width: 100%; border-collapse: collapse; margin-bottom: .75rem; font-size: 0.75rem; }
+  .report-body th { background: var(--g100); padding: 6px 10px; text-align: left; font-family: var(--fh); font-size: 0.65rem; text-transform: uppercase; letter-spacing: .05em; border: 1px solid var(--g200); }
+  .report-body td { padding: 6px 10px; border: 1px solid var(--g200); }
+  .report-body hr { border: none; border-top: 1px solid var(--g200); margin: 1.25rem 0; }
 
-  .report-actions { display: flex; gap: 10px; margin-bottom: 1.5rem; align-items: center; }
-  .report-title-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 2px solid var(--black); }
-  .report-title-label { font-family: var(--font-head); font-size: 0.65rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gray-400); }
+  /* Error */
+  .err { display: none; background: var(--pass-bg); color: var(--pass-fg); border: 1px solid var(--pass-bd); padding: .75rem 1rem; font-size: 0.8rem; border-radius: 2px; }
+  .err.show { display: block; }
 
-  /* RECENT */
-  .recent { margin-top: 4rem; border-top: 1px solid var(--gray-200); padding-top: 2rem; display: none; }
-  .recent.show { display: block; }
-  .recent-items { display: flex; flex-direction: column; gap: 1px; background: var(--gray-200); border: 1px solid var(--gray-200); }
-  .recent-item { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; background: var(--white); cursor: pointer; transition: background 0.15s; font-size: 0.875rem; }
-  .recent-item:hover { background: var(--gray-100); }
-  .recent-name { font-weight: 500; }
-  .recent-genre { color: var(--gray-400); font-size: 0.8rem; margin-left: 8px; }
-  .recent-right { display: flex; align-items: center; gap: 12px; }
-  .recent-score { font-size: 0.75rem; color: var(--gray-400); }
-  .recent-verdict { font-family: var(--font-head); font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 4px 10px; border: 1px solid; border-radius: 2px; }
-  .recent-verdict.SIGN { background: var(--sign-bg); color: var(--sign-text); border-color: var(--sign-border); }
-  .recent-verdict.WATCH { background: var(--watch-bg); color: var(--watch-text); border-color: var(--watch-border); }
-  .recent-verdict.PASS { background: var(--pass-bg); color: var(--pass-text); border-color: var(--pass-border); }
-
-  @media (max-width: 620px) {
-    main { padding: 3rem 1.25rem 4rem; }
-    nav { padding: 0 1.25rem; }
-    .form-grid { grid-template-columns: 1fr; }
-    .btn-evaluate { min-height: 52px; }
-    .signals { grid-template-columns: 1fr 1fr; }
-    h1 { font-size: 2.2rem; }
+  @media (max-width: 760px) {
+    .layout { grid-template-columns: 1fr; }
+    .left { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--g200); }
+    h1 { font-size: 2rem; }
   }
 </style>
 </head>
 <body>
 
 <nav>
-  <div class="nav-logo">
-    <div class="dot"></div>
-    Believe · A&R Intelligence
-  </div>
-  <div class="nav-right">
-    <div class="status-dot" id="statusDot"></div>
-    <span id="statusText">—</span>
-  </div>
+  <div class="logo"><div class="dot"></div>Believe · A&R Intelligence</div>
+  <div class="api-status"><div class="sdot" id="sdot"></div><span id="stxt">—</span></div>
 </nav>
 
-<main>
+<div class="layout">
 
-  <div class="hero">
-    <div class="hero-tag">Autonomous artist research for independent digital music distribution</div>
-    <h1>Sign.<br>Watch.<br>Pass.</h1>
-    <p class="hero-desc">
-      Type an artist name. The agent checks Spotify, Last.fm, NewsAPI,
-      and Believe's roster database — and returns a SIGN / WATCH / PASS
-      decision in seconds. Genre is detected automatically.
-    </p>
-  </div>
-
-  <!-- FORM -->
-  <div class="form-section">
-    <div class="section-label">New evaluation</div>
-    <div class="form-grid">
-      <div class="form-field">
-        <label>Artist name</label>
-        <input type="text" id="artistInput" placeholder="e.g. Fisher, Rema, Bicep, Four Tet…" autocomplete="off" />
-      </div>
-      <button class="btn-evaluate" id="evalBtn" onclick="runTriage()">
-        Evaluate →
-      </button>
-    </div>
-  </div>
-
-  <!-- ERROR -->
-  <div class="error-msg" id="errorMsg"></div>
-
-  <!-- LOADING -->
-  <div class="loading" id="loading">
-    <div class="loading-header">
-      <div class="dot" style="background:var(--black);width:6px;height:6px;animation:breathe 1s infinite"></div>
-      Running pipeline
-    </div>
-    <div class="loading-bar-track">
-      <div class="loading-bar-fill" id="loadBar"></div>
-    </div>
-    <div class="loading-steps">
-      <div class="step" id="s1"><div class="step-dot"></div>Spotify + Last.fm — streaming data</div>
-      <div class="step" id="s2"><div class="step-dot"></div>NewsAPI — press coverage</div>
-      <div class="step" id="s3"><div class="step-dot"></div>Major label check</div>
-      <div class="step" id="s4"><div class="step-dot"></div>Scoring and classification</div>
-      <div class="step" id="s5"><div class="step-dot"></div>Claude — reasoning</div>
-    </div>
-  </div>
-
-  <!-- TRIAGE RESULT -->
-  <div class="result" id="result">
-
-    <div class="result-top">
-      <div>
-        <div class="result-name" id="rName"></div>
-        <div class="result-meta" id="rMeta"></div>
-      </div>
-      <div class="verdict" id="rVerdict">
-        <span class="verdict-dot"></span>
-        <span id="rVerdictText"></span>
-      </div>
+  <!-- LEFT -->
+  <aside class="left">
+    <div>
+      <div class="tagline">Autonomous artist research</div>
+      <h1>Sign.<br>Watch.<br>Pass.</h1>
     </div>
 
-    <div class="score-row">
-      <div class="score-num" id="rScore">—</div>
-      <div class="score-right">
-        <div class="score-bar-track">
-          <div class="score-bar-fill" id="rBar" style="width:0%"></div>
+    <p class="desc">Type an artist name. The agent checks Spotify, Last.fm, NewsAPI and Believe's roster database — and returns a data-driven decision in seconds.</p>
+
+    <div>
+      <div class="search-box">
+        <div class="search-field">
+          <label>Artist name</label>
+          <input type="text" id="artistInput" placeholder="Fisher, Rema, Bicep…" autocomplete="off" />
         </div>
-        <div class="score-ticks">
-          <span>0 · Pass</span>
-          <span>40 · Watch</span>
-          <span>70 · Sign</span>
-          <span>100</span>
+        <button class="btn-eval" id="evalBtn" onclick="go()">Evaluate →</button>
+      </div>
+      <div class="err" id="errMsg"></div>
+    </div>
+
+    <div class="loading" id="loading">
+      <div class="progress"><div class="progress-fill" id="pbar"></div></div>
+      <div class="steps">
+        <div class="step" id="s1"><div class="sdp"></div>Spotify + Last.fm</div>
+        <div class="step" id="s2"><div class="sdp"></div>NewsAPI press coverage</div>
+        <div class="step" id="s3"><div class="sdp"></div>Major label check</div>
+        <div class="step" id="s4"><div class="sdp"></div>Scoring</div>
+        <div class="step" id="s5"><div class="sdp"></div>Claude reasoning</div>
+      </div>
+    </div>
+
+    <div class="recent" id="recentEl">
+      <div class="recent-label">Recent</div>
+      <div class="recent-list" id="recentList"></div>
+    </div>
+  </aside>
+
+  <!-- RIGHT -->
+  <main class="right">
+
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">◉</div>
+      <div class="empty-text">Enter an artist name on the left to get a signing recommendation.</div>
+    </div>
+
+    <div class="result" id="result">
+
+      <div class="result-header">
+        <div>
+          <div class="artist-name" id="rName"></div>
+          <div class="artist-meta" id="rMeta"></div>
+        </div>
+        <div class="verdict" id="rVerdict"><span class="vdot"></span><span id="rVtxt"></span></div>
+      </div>
+
+      <div class="score-row">
+        <div class="score-num" id="rScore">—</div>
+        <div class="score-track">
+          <div class="bar-bg"><div class="bar-fill" id="rBar" style="width:0%"></div></div>
+          <div class="bar-ticks"><span>0 · Pass</span><span>40 · Watch</span><span>70 · Sign</span><span>100</span></div>
         </div>
       </div>
+
+      <div class="signals">
+        <div class="sig"><div class="sk">Monthly listeners</div><div class="sv" id="sL">—</div><div class="sn" id="sLs"></div></div>
+        <div class="sig"><div class="sk">Est. velocity</div><div class="sv" id="sV">—</div><div class="sn">MoM growth (proxy)</div></div>
+        <div class="sig"><div class="sk">Press articles</div><div class="sv" id="sP">—</div><div class="sn">last 30 days</div></div>
+        <div class="sig"><div class="sk">Tier-1 outlets</div><div class="sv" id="sT">—</div><div class="sn">NME · Billboard · RA</div></div>
+        <div class="sig"><div class="sk">Active markets</div><div class="sv" id="sM">—</div><div class="sn">countries</div></div>
+        <div class="sig"><div class="sk">Data source</div><div class="sv" id="sDs" style="font-size:.8rem;font-family:var(--fb)">—</div><div class="sn" id="sDsn"></div></div>
+      </div>
+
+      <div class="reasoning"><div class="rl">Agent reasoning</div><div class="rt" id="rR"></div></div>
+
+      <div class="actions">
+        <button class="btn btn-primary" id="reportBtn" style="display:none" onclick="genReport()">Generate full report →</button>
+        <button class="btn btn-secondary" onclick="reset()">New evaluation</button>
+      </div>
+
+      <div class="report-section" id="reportSection">
+        <div class="report-bar">
+          <span class="report-label">Full A&R Report</span>
+          <div class="report-btns">
+            <button class="btn btn-dl" id="dlBtn" style="display:none;padding:7px 14px;font-size:.62rem" onclick="dlPdf()">Download PDF →</button>
+            <button class="btn btn-secondary" style="padding:7px 14px;font-size:.62rem" onclick="closeRpt()">Close</button>
+          </div>
+        </div>
+        <div id="rptContent"></div>
+      </div>
+
     </div>
-
-    <div class="signals">
-      <div class="signal">
-        <div class="signal-key">Monthly listeners</div>
-        <div class="signal-val" id="sListeners">—</div>
-        <div class="signal-note" id="sListenersSub"></div>
-      </div>
-      <div class="signal">
-        <div class="signal-key">Est. velocity</div>
-        <div class="signal-val" id="sVelocity">—</div>
-        <div class="signal-note">MoM growth (proxy)</div>
-      </div>
-      <div class="signal">
-        <div class="signal-key">Press articles</div>
-        <div class="signal-val" id="sPress">—</div>
-        <div class="signal-note" id="sPressSub"></div>
-      </div>
-      <div class="signal">
-        <div class="signal-key">Tier-1 outlets</div>
-        <div class="signal-val" id="sTier1">—</div>
-        <div class="signal-note">NME · Billboard · RA</div>
-      </div>
-      <div class="signal">
-        <div class="signal-key">Active markets</div>
-        <div class="signal-val" id="sMarkets">—</div>
-        <div class="signal-note">countries</div>
-      </div>
-      <div class="signal">
-        <div class="signal-key">Data source</div>
-        <div class="signal-val" id="sSource" style="font-size:0.85rem;font-family:var(--font-body)">—</div>
-        <div class="signal-note" id="sSourceNote"></div>
-      </div>
-    </div>
-
-    <div class="reasoning">
-      <div class="reasoning-label">Agent reasoning</div>
-      <div class="reasoning-text" id="rReasoning"></div>
-    </div>
-
-    <div class="actions">
-      <button class="btn btn-primary" id="reportBtn" onclick="generateReport()" style="display:none">
-        Generate full report →
-      </button>
-      <button class="btn btn-secondary" onclick="reset()">
-        New evaluation
-      </button>
-    </div>
-
-  </div>
-
-  <!-- REPORT SECTION -->
-  <div class="report-section" id="reportSection">
-    <div class="report-title-bar">
-      <span class="report-title-label">Full A&R Report</span>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-download" id="downloadBtn" onclick="downloadReport()" style="display:none;padding:8px 16px;font-size:0.65rem">
-          Download PDF →
-        </button>
-        <button class="btn btn-secondary" onclick="closeReport()" style="padding:8px 16px;font-size:0.65rem">
-          Close report
-        </button>
-      </div>
-    </div>
-    <div id="reportContent"></div>
-  </div>
-
-  <!-- RECENT -->
-  <div class="recent" id="recentSection">
-    <div class="section-label" style="margin-bottom:1rem">Recent evaluations</div>
-    <div class="recent-items" id="recentList"></div>
-  </div>
-
-</main>
+  </main>
+</div>
 
 <script>
-  // ── Config ─────────────────────────────────────────────
-  // Change this URL after deploying to Railway
-  const API = 'http://127.0.0.1:8000';
+const API = 'http://127.0.0.1:8000';
+let recent = JSON.parse(localStorage.getItem('bv_ar') || '[]');
+let cur = null, rptPath = null, pdfPath = null, currentReportText = '', currentArtistName = '';
 
-  let recent = JSON.parse(localStorage.getItem('believe_ar') || '[]');
-  let current = null;
-  let currentReportPath = null;
-  let currentPdfPath = null;
+async function checkApi() {
+  try {
+    const r = await fetch(`${API}/health`, { signal: AbortSignal.timeout(3000) });
+    if (r.ok) { document.getElementById('sdot').className='sdot'; document.getElementById('stxt').textContent='API connected'; }
+    else throw 0;
+  } catch { document.getElementById('sdot').className='sdot off'; document.getElementById('stxt').textContent='API offline'; }
+}
+checkApi();
 
-  // ── API status ─────────────────────────────────────────
-  async function checkApi() {
-    try {
-      const r = await fetch(`${API}/health`, { signal: AbortSignal.timeout(3000) });
-      if (r.ok) {
-        document.getElementById('statusDot').className = 'status-dot';
-        document.getElementById('statusText').textContent = 'API connected';
-      } else throw 0;
-    } catch {
-      document.getElementById('statusDot').className = 'status-dot offline';
-      document.getElementById('statusText').textContent = 'API offline';
-    }
-  }
-  checkApi();
+function fmt(n) {
+  if (!n) return '—';
+  if (n>=1e6) return (n/1e6).toFixed(1)+'M';
+  if (n>=1e3) return (n/1e3).toFixed(0)+'K';
+  return String(n);
+}
 
-  // ── Helpers ────────────────────────────────────────────
-  function fmt(n) {
-    if (!n) return '—';
-    if (n >= 1e6) return (n/1e6).toFixed(1)+'M';
-    if (n >= 1e3) return (n/1e3).toFixed(0)+'K';
-    return String(n);
-  }
+function md2html(md) {
+  return md
+    .replace(/^# (.+)$/gm,'<h1>$1</h1>')
+    .replace(/^## (.+)$/gm,'<h2>$1</h2>')
+    .replace(/^### (.+)$/gm,'<h3>$1</h3>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/^- (.+)$/gm,'<li>$1</li>')
+    .replace(/(<li>.*<\/li>\n?)+/g,'<ul>$&</ul>')
+    .replace(/^---$/gm,'<hr>')
+    .replace(/\n\n/g,'</p><p>')
+    || md;
+}
 
-  // Simple markdown to HTML converter
-  function mdToHtml(md) {
-    return md
-      .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-      .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-      .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/^- (.+)$/gm, '<li>$1</li>')
-      .replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>')
-      .replace(/^\|(.+)\|$/gm, (line) => {
-        const cells = line.split('|').slice(1,-1).map(c => c.trim());
-        const isHeader = cells.every(c => /^[-:]+$/.test(c));
-        if (isHeader) return '';
-        const tag = line.includes('---') ? 'th' : 'td';
-        return '<tr>' + cells.map(c => `<${tag}>${c}</${tag}>`).join('') + '</tr>';
-      })
-      .replace(/(<tr>.*<\/tr>\n?)+/g, (rows) => {
-        const firstRow = rows.match(/<tr>(.*?)<\/tr>/);
-        if (firstRow && firstRow[1].includes('<td>')) return `<table>${rows}</table>`;
-        return `<table><thead>${rows.match(/<tr>.*?<\/tr>/)[0]}</thead><tbody>${rows.replace(/<tr>.*?<\/tr>/, '')}</tbody></table>`;
-      })
-      .replace(/^---$/gm, '<hr>')
-      .replace(/\n\n/g, '</p><p>')
-      .replace(/^(?!<[h|u|t|l|p])/gm, '')
-      .replace(/<p><\/p>/g, '')
-      || md;
-  }
+async function go() {
+  const artist = document.getElementById('artistInput').value.trim();
+  if (!artist) { document.getElementById('artistInput').focus(); return; }
 
-  // ── Triage ─────────────────────────────────────────────
-  async function runTriage() {
-    const artist = document.getElementById('artistInput').value.trim();
-    if (!artist) { document.getElementById('artistInput').focus(); return; }
-    const genre = '';  // auto-detected from Last.fm tags
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('result').classList.remove('show');
+  document.getElementById('reportSection').classList.remove('show');
+  document.getElementById('errMsg').classList.remove('show');
+  document.getElementById('loading').classList.add('show');
+  document.getElementById('evalBtn').disabled = true;
 
-    document.getElementById('result').classList.remove('show');
-    document.getElementById('reportSection').classList.remove('show');
-    document.getElementById('errorMsg').classList.remove('show');
-    document.getElementById('loading').classList.add('show');
-    document.getElementById('evalBtn').disabled = true;
-
-    const steps = ['s1','s2','s3','s4','s5'];
-    let i = 0;
-    document.getElementById('loadBar').style.width = '5%';
-    const iv = setInterval(() => {
-      if (i < steps.length) {
-        steps.forEach((s,j) => {
-          const el = document.getElementById(s);
-          if (j < i)       el.className = 'step done';
-          else if (j === i) el.className = 'step active';
-          else              el.className = 'step';
-        });
-        document.getElementById('loadBar').style.width = (10 + i * 18) + '%';
-        i++;
-      } else clearInterval(iv);
-    }, 2800);
-
-    try {
-      const res = await fetch(`${API}/triage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ artist_name: artist, genre }),
+  const steps = ['s1','s2','s3','s4','s5'];
+  let i = 0;
+  document.getElementById('pbar').style.width = '5%';
+  const iv = setInterval(() => {
+    if (i < steps.length) {
+      steps.forEach((s,j) => {
+        const el = document.getElementById(s);
+        el.className = j<i ? 'step done' : j===i ? 'step active' : 'step';
       });
-      clearInterval(iv);
-      document.getElementById('loadBar').style.width = '100%';
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      current = { ...data, genre };
+      document.getElementById('pbar').style.width = (10+i*18)+'%';
+      i++;
+    } else clearInterval(iv);
+  }, 2800);
 
-      setTimeout(() => {
-        document.getElementById('loading').classList.remove('show');
-        showResult(data, artist, genre);
-        const g = (data.signals && data.signals.genres && data.signals.genres[0]) || '';
-        saveRecent(artist, g, data.decision, data.score);
-      }, 300);
-
-    } catch (err) {
-      clearInterval(iv);
-      document.getElementById('loading').classList.remove('show');
-      document.getElementById('evalBtn').disabled = false;
-      const e = document.getElementById('errorMsg');
-      e.textContent = 'Cannot reach the API. Make sure the server is running.';
-      e.classList.add('show');
-    }
-  }
-
-  function showResult(data, artist, genre) {
-    document.getElementById('evalBtn').disabled = false;
-
-    document.getElementById('rName').textContent = artist;
-    const detectedGenre = (data.signals && data.signals.genres && data.signals.genres[0]) || '';
-    document.getElementById('rMeta').textContent = (detectedGenre ? detectedGenre + ' · ' : '') + 'score ' + data.score + '/100';
-
-    const v = document.getElementById('rVerdict');
-    v.className = 'verdict ' + data.decision;
-    document.getElementById('rVerdictText').textContent = data.decision;
-
-    document.getElementById('rScore').textContent = data.score + '/100';
-    setTimeout(() => { document.getElementById('rBar').style.width = data.score + '%'; }, 80);
-
-    const s = data.signals || {};
-    document.getElementById('sListeners').textContent = fmt(s.monthly_listeners);
-    document.getElementById('sListenersSub').textContent = fmt(s.weekly_listeners) + ' weekly · Last.fm';
-    document.getElementById('sVelocity').textContent = (s.follower_velocity_pct||0).toFixed(1) + '%';
-    document.getElementById('sPress').textContent = (s.press_article_count||0).toString();
-    document.getElementById('sPressSub').textContent = 'last 30 days';
-    document.getElementById('sTier1').textContent = (s.press_tier1_count||0).toString();
-    document.getElementById('sMarkets').textContent = (s.active_markets||0).toString();
-    document.getElementById('sSource').textContent = s.data_source || '—';
-    document.getElementById('sSourceNote').textContent = s.major_label ? '⚠ Major label: ' + s.major_label : '';
-    document.getElementById('rReasoning').textContent = data.reasoning || '—';
-
-    const reportBtn = document.getElementById('reportBtn');
-    reportBtn.style.display = data.decision === 'SIGN' ? 'inline-flex' : 'none';
-    reportBtn.textContent = 'Generate full report →';
-    reportBtn.disabled = false;
-    reportBtn.style.background = '';
-    reportBtn.style.borderColor = '';
-
-    document.getElementById('result').classList.add('show');
-    document.getElementById('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
-  // ── Report generation & preview ────────────────────────
-  async function generateReport() {
-    if (!current) return;
-    const btn = document.getElementById('reportBtn');
-    btn.textContent = '⌛ Generating report (~2 min)…';
-    btn.disabled = true;
-
-    const reportSection = document.getElementById('reportSection');
-    const reportContent = document.getElementById('reportContent');
-
-    reportSection.classList.add('show');
-    reportContent.innerHTML = `
-      <div class="report-loading">
-        <div class="spinner"></div>
-        Fetching Spotify, Last.fm, NewsAPI, YouTube and Pinecone data...<br>
-        Claude is synthesising the report. This takes about 2 minutes.
-      </div>`;
-    reportSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-    try {
-      const res = await fetch(`${API}/research`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          artist_name: current.artist_name,
-          genre: current.genre,
-          triage_score: current.score,
-        }),
-      });
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-
-      currentReportPath = data.report_path;
-      currentPdfPath = data.pdf_path;
-
-      // Fetch report content to display in browser
-      const filename = data.report_path.split('\\').pop().split('/').pop();
-      const contentRes = await fetch(`${API}/reports/${filename}/content`);
-
-      if (contentRes.ok) {
-        const contentData = await contentRes.json();
-        reportContent.innerHTML = `<div class="report-content">${mdToHtml(contentData.content)}</div>`;
-      } else {
-        reportContent.innerHTML = `
-          <div class="report-content">
-            <p>Report generated successfully.</p>
-            <p>File saved: <strong>${data.report_path}</strong></p>
-          </div>`;
-      }
-
-      document.getElementById('downloadBtn').style.display = 'inline-flex';
-
-      btn.textContent = '✓ Report generated';
-      btn.style.background = '#1a4d1a';
-      btn.style.borderColor = '#1a4d1a';
-      btn.style.color = 'white';
-
-    } catch (err) {
-      reportContent.innerHTML = `<p style="color:var(--pass-text)">Report generation failed: ${err.message}</p>`;
-      btn.textContent = '✗ Failed — try again';
-      btn.disabled = false;
-    }
-  }
-
-  async function downloadReport() {
-    if (!currentPdfPath && !currentReportPath) return;
-    const filename = (currentPdfPath || currentReportPath).split('\\').pop().split('/').pop();
-    const pdfFilename = filename.replace('.md', '.pdf');
-    window.open(`${API}/reports/${pdfFilename}`, '_blank');
-  }
-
-  function closeReport() {
-    document.getElementById('reportSection').classList.remove('show');
-  }
-
-  // ── Reset ──────────────────────────────────────────────
-  function reset() {
-    document.getElementById('result').classList.remove('show');
-    document.getElementById('reportSection').classList.remove('show');
-    document.getElementById('errorMsg').classList.remove('show');
-    document.getElementById('artistInput').value = '';
-    document.getElementById('evalBtn').disabled = false;
-    document.getElementById('loadBar').style.width = '0%';
-    ['s1','s2','s3','s4','s5'].forEach(s => {
-      document.getElementById(s).className = 'step';
+  try {
+    const res = await fetch(`${API}/triage`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ artist_name: artist, genre: '' }),
     });
-    currentReportPath = null;
-    currentPdfPath = null;
-    document.getElementById('artistInput').focus();
+    clearInterval(iv);
+    document.getElementById('pbar').style.width = '100%';
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    cur = { ...data, artist };
+    setTimeout(() => {
+      document.getElementById('loading').classList.remove('show');
+      showResult(data, artist);
+      saveRecent(artist, data.decision, data.score);
+    }, 300);
+  } catch(err) {
+    clearInterval(iv);
+    document.getElementById('loading').classList.remove('show');
+    document.getElementById('evalBtn').disabled = false;
+    const e = document.getElementById('errMsg');
+    e.textContent = 'Cannot reach the API. Make sure the server is running.';
+    e.classList.add('show');
   }
+}
 
-  // ── Recent ─────────────────────────────────────────────
-  function saveRecent(artist, genre, decision, score) {
-    recent = recent.filter(r => r.artist !== artist);
-    recent.unshift({ artist, genre, decision, score });
-    recent = recent.slice(0, 6);
-    localStorage.setItem('believe_ar', JSON.stringify(recent));
-    renderRecent();
+function showResult(data, artist) {
+  document.getElementById('evalBtn').disabled = false;
+  document.getElementById('rName').textContent = artist;
+  const g = data.signals?.genres?.[0] || '';
+  document.getElementById('rMeta').textContent = (g ? g+' · ' : '') + 'score '+data.score+'/100';
+
+  const v = document.getElementById('rVerdict');
+  v.className = 'verdict '+data.decision;
+  document.getElementById('rVtxt').textContent = data.decision;
+  document.getElementById('rScore').textContent = data.score+'/100';
+  setTimeout(() => { document.getElementById('rBar').style.width = data.score+'%'; }, 80);
+
+  const s = data.signals || {};
+  document.getElementById('sL').textContent = fmt(s.monthly_listeners);
+  document.getElementById('sLs').textContent = fmt(s.weekly_listeners)+' weekly · Last.fm';
+  document.getElementById('sV').textContent = (s.follower_velocity_pct||0).toFixed(1)+'%';
+  document.getElementById('sP').textContent = s.press_article_count||0;
+  document.getElementById('sT').textContent = s.press_tier1_count||0;
+  document.getElementById('sM').textContent = s.active_markets||0;
+  document.getElementById('sDs').textContent = s.data_source||'—';
+  document.getElementById('sDsn').textContent = s.major_label ? '⚠ '+s.major_label : '';
+  document.getElementById('rR').textContent = data.reasoning||'—';
+
+  const rb = document.getElementById('reportBtn');
+  rb.style.display = data.decision==='SIGN' ? 'inline-flex' : 'none';
+  rb.textContent = 'Generate full report →';
+  rb.disabled = false;
+  rb.style.background = rb.style.borderColor = rb.style.color = '';
+
+  document.getElementById('result').classList.add('show');
+}
+
+async function genReport() {
+  if (!cur) return;
+  const btn = document.getElementById('reportBtn');
+  btn.textContent = '⌛ Generating (~2 min)…';
+  btn.disabled = true;
+
+  const sec = document.getElementById('reportSection');
+  const cont = document.getElementById('rptContent');
+  sec.classList.add('show');
+  cont.innerHTML = '<div class="report-loading"><div class="spinner"></div>Fetching data from all sources… Claude is synthesising the report. This takes about 2 minutes.</div>';
+  sec.scrollIntoView({ behavior:'smooth', block:'start' });
+
+  try {
+    const res = await fetch(`${API}/research`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ artist_name: cur.artist_name || cur.artist, genre: cur.signals?.genres?.[0]||'', triage_score: cur.score }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    rptPath = data.report_path;
+    pdfPath = data.pdf_path;
+
+    const fn = (data.report_path||'').split('\\').pop().split('/').pop();
+    const cr = await fetch(`${API}/reports/${fn}/content`);
+    if (cr.ok) {
+      const cd = await cr.json();
+      cont.innerHTML = '<div class="report-body">'+md2html(cd.content)+'</div>';
+    } else {
+      cont.innerHTML = '<div class="report-body"><p>Report generated and saved to <strong>reports/</strong> folder.</p></div>';
+    }
+
+    document.getElementById('dlBtn').style.display = 'inline-flex';
+    btn.textContent = '✓ Report generated';
+    btn.style.cssText = 'background:#1a4d1a;border-color:#1a4d1a;color:white';
+  } catch(err) {
+    cont.innerHTML = '<p style="color:var(--pass-fg)">Report generation failed: '+err.message+'</p>';
+    btn.textContent = '✗ Failed — try again';
+    btn.disabled = false;
   }
+}
 
-  function renderRecent() {
-    if (!recent.length) return;
-    document.getElementById('recentSection').classList.add('show');
-    document.getElementById('recentList').innerHTML = recent.map(r => `
-      <div class="recent-item" onclick="loadRecent('${r.artist}','${r.genre}')">
-        <div>
-          <span class="recent-name">${r.artist}</span>
-          <span class="recent-genre">${r.genre}</span>
-        </div>
-        <div class="recent-right">
-          <span class="recent-score">${r.score}/100</span>
-          <span class="recent-verdict ${r.decision}">${r.decision}</span>
-        </div>
-      </div>
-    `).join('');
-  }
+function dlPdf() {
+  // Browser-side PDF generation using print dialog
+  // Works on Railway without needing server-side file storage
+  if (!currentReportText) return;
 
-  function loadRecent(artist, genre) {
-    document.getElementById('artistInput').value = artist;
-    document.getElementById('genreInput').value = genre;
-    runTriage();
-  }
+  const printWindow = window.open('', '_blank');
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>A&R Report — ${currentArtistName}</title>
+      <style>
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@300;400;500&display=swap');
+        body { font-family: 'Inter', sans-serif; font-size: 11pt; line-height: 1.7; color: #111; max-width: 700px; margin: 0 auto; padding: 2cm; }
+        h1 { font-family: 'Syne', sans-serif; font-size: 20pt; font-weight: 800; text-transform: uppercase; letter-spacing: -0.02em; margin: 1.5rem 0 0.4rem; }
+        h2 { font-family: 'Syne', sans-serif; font-size: 11pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin: 1.5rem 0 0.5rem; padding-bottom: 4px; border-bottom: 1px solid #ddd; }
+        h3 { font-family: 'Syne', sans-serif; font-size: 10pt; font-weight: 600; margin: 1rem 0 0.3rem; }
+        p { margin-bottom: 0.6rem; }
+        ul { padding-left: 1.2rem; margin-bottom: 0.6rem; }
+        li { margin-bottom: 0.2rem; }
+        strong { font-weight: 500; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 0.75rem; font-size: 9pt; }
+        th { background: #f4f4f4; padding: 5px 8px; text-align: left; font-family: 'Syne', sans-serif; font-size: 8pt; text-transform: uppercase; border: 1px solid #ddd; }
+        td { padding: 5px 8px; border: 1px solid #ddd; }
+        hr { border: none; border-top: 1px solid #eee; margin: 1.2rem 0; }
+        @media print { body { padding: 1cm; } }
+      </style>
+    </head>
+    <body>${md2html(currentReportText)}</body>
+    </html>
+  `);
+  printWindow.document.close();
+  setTimeout(() => { printWindow.print(); }, 500);
+}
 
-  document.getElementById('artistInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter') runTriage();
-  });
+function closeRpt() { document.getElementById('reportSection').classList.remove('show'); }
 
+function reset() {
+  document.getElementById('result').classList.remove('show');
+  document.getElementById('reportSection').classList.remove('show');
+  document.getElementById('errMsg').classList.remove('show');
+  document.getElementById('emptyState').style.display = 'flex';
+  document.getElementById('artistInput').value = '';
+  document.getElementById('evalBtn').disabled = false;
+  document.getElementById('pbar').style.width = '0%';
+  ['s1','s2','s3','s4','s5'].forEach(s => document.getElementById(s).className='step');
+  rptPath = pdfPath = null; currentReportText = ''; currentArtistName = '';
+  document.getElementById('artistInput').focus();
+}
+
+function saveRecent(artist, decision, score) {
+  recent = recent.filter(r => r.artist !== artist);
+  recent.unshift({ artist, decision, score });
+  recent = recent.slice(0, 5);
+  localStorage.setItem('bv_ar', JSON.stringify(recent));
   renderRecent();
+}
+
+function renderRecent() {
+  if (!recent.length) return;
+  document.getElementById('recentEl').classList.add('show');
+  document.getElementById('recentList').innerHTML = recent.map(r =>
+    `<div class="recent-item" onclick="loadRecent('${r.artist}')">
+      <span class="ri-name">${r.artist}</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:.7rem;color:var(--g400)">${r.score}/100</span>
+        <span class="ri-badge ${r.decision}">${r.decision}</span>
+      </div>
+    </div>`
+  ).join('');
+}
+
+function loadRecent(artist) {
+  document.getElementById('artistInput').value = artist;
+  go();
+}
+
+document.getElementById('artistInput').addEventListener('keydown', e => { if (e.key==='Enter') go(); });
+renderRecent();
 </script>
 </body>
 </html>
