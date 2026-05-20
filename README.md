@@ -9,7 +9,7 @@ Built by: Daria Bystrova | Ironhack AI Consulting Bootcamp | Project 3
 
 An A&R (Artists & Repertoire) manager at Believe receives hundreds of artist submissions globally. Manually researching each one takes hours. This agent automates the entire first-pass evaluation:
 
-1. Submit an artist name via API
+1. Submit an artist name via the web interface at https://ar-agent-zkjw.onrender.com or directly via API
 2. The agent pulls data from Spotify, Last.fm, YouTube, NewsAPI, and Believe's roster database
 3. It scores the artist 0–100 and returns **PASS / WATCH / SIGN**
 4. For SIGN decisions it generates a full structured report
@@ -19,10 +19,20 @@ An A&R (Artists & Repertoire) manager at Believe receives hundreds of artist sub
 
 ---
 
+## Live demo
+
+**https://ar-agent-zkjw.onrender.com**
+
+Enter any artist name. The agent checks Spotify, Last.fm, NewsAPI and Believe's roster database and returns a data-driven decision in seconds. For SIGN decisions, generate a full 9-section A&R report and download it as HTML/PDF.
+
+> Free tier note: the service spins down after 15 min of inactivity. First request after idle takes ~30–50s to wake up.
+
+---
+
 ## Architecture
 
 ```
-Your request (curl / n8n webhook)
+Your request (browser UI / curl / n8n webhook)
         ↓
 FastAPI /triage endpoint
         ↓
@@ -63,11 +73,45 @@ Score 0-100 → PASS / WATCH / SIGN
 | Vector database | Pinecone | Semantic similarity search against Believe's roster |
 | Embeddings | OpenAI text-embedding-3-small | Artist profile vectorisation |
 | API runtime | FastAPI + Uvicorn | HTTP endpoints for n8n and direct calls |
+| Web interface | interface.html (served via FastAPI) | Browser UI for non-technical A&R managers |
+| Deployment | Render.com (Frankfurt EU) | Cloud hosting, auto-deploy from GitHub |
 | Workflow automation | n8n | Webhook trigger, Slack output, Google Drive storage |
 | Streaming data | Spotify + Last.fm | Two-source resilient data collection |
 | Press data | NewsAPI | Press coverage and traction signals |
 | Video data | YouTube Data API v3 | Channel stats and upload cadence |
 | Testing | pytest + pytest-mock | 17 unit tests, no real API calls needed |
+
+---
+
+## Deployment
+
+The agent is deployed on Render.com and publicly accessible at:
+
+**https://ar-agent-zkjw.onrender.com**
+
+| URL | What it does |
+|-----|-------------|
+| `/` | Web interface — enter artist name, see decision + report |
+| `/triage` | POST — fast triage, returns PASS/WATCH/SIGN in ~15s |
+| `/research` | POST — full LangGraph report for SIGN artists (~2 min) |
+| `/health` | GET — health check |
+| `/docs` | FastAPI interactive API documentation |
+
+### Render configuration
+
+| Field | Value |
+|-------|-------|
+| Region | Frankfurt (EU Central) |
+| Runtime | Python 3 |
+| Build command | `pip install -r requirements.txt` |
+| Start command | `uvicorn api.main:app --host 0.0.0.0 --port $PORT` |
+| Instance type | Free |
+
+### Free tier notes
+
+- Service spins down after 15 min of inactivity — first request after idle takes ~30–50s to wake up
+- `reports/` folder is ephemeral — reports are generated fresh per session; browser-side HTML download handles persistence
+- Auto-deploys on every push to `main`
 
 ---
 
@@ -106,7 +150,6 @@ Last.fm is free with no restrictions. When Spotify returns limited dev mode data
 
 **Velocity note**: Last.fm does not expose historical weekly snapshots, so real MoM growth cannot be measured directly. We use a playcount momentum proxy to estimate velocity. See the Velocity Proxy section below.
 
-
 ---
 
 ### Monthly listeners proxy — how we estimate it
@@ -144,7 +187,6 @@ For established artists, weekly listener counts are stable week-to-week. A 4× m
 | Last.fm weekly × 4 | What we use now | Consistent proxy, underestimates absolute | Free |
 
 **Key point for scoring**: Our thresholds were calibrated against the weekly × 4 proxy. A score of 78/100 for Dua Lipa correctly identifies her as a SIGN candidate even though the absolute listener number differs from Spotify. The ranking logic works correctly.
-
 
 ---
 
@@ -185,8 +227,7 @@ An established artist has deep loyal fans who have played their music thousands 
 
 Rema's ratio of 21.3 correctly identifies him as a developing artist in a strong growth phase. Dua Lipa's ratio of 97.5 correctly identifies her as an established artist with steady but not explosive growth.
 
-**Is this accurate?**
-The proxy is directionally correct — it correctly ranks new artists as higher velocity than established ones. It is not a precise measurement. All velocity values are stored with `velocity_estimated: True` so reports are transparent about this.
+**Is this accurate?** The proxy is directionally correct — it correctly ranks new artists as higher velocity than established ones. It is not a precise measurement. All velocity values are stored with `velocity_estimated: True` so reports are transparent about this.
 
 **Alternatives for real velocity data:**
 
@@ -218,6 +259,7 @@ Agent calls Spotify for full artist data
 ```
 
 ### NewsAPI
+
 | Data point | Available |
 |-----------|---------|
 | Article count (last 30 days) | ✓ |
@@ -227,6 +269,7 @@ Agent calls Spotify for full artist data
 | Full article body | ✗ Free tier only returns headlines |
 
 ### YouTube Data API v3
+
 | Data point | Available |
 |-----------|---------|
 | Subscriber count | ✓ |
@@ -236,6 +279,7 @@ Agent calls Spotify for full artist data
 | Last upload date | ✓ |
 
 ### Pinecone roster RAG
+
 | Data point | Available |
 |-----------|---------|
 | Similar artist matches | ✓ |
@@ -248,6 +292,7 @@ Agent calls Spotify for full artist data
 ## Spotify restrictions — full explanation
 
 ### What changed (February 2026)
+
 Spotify announced major API restrictions in February 2026 to protect artist data and control AI usage of their platform. All new developer apps created after this date are limited to:
 
 - Only `/search` and basic metadata endpoints
@@ -256,9 +301,11 @@ Spotify announced major API restrictions in February 2026 to protect artist data
 - No monthly listener data (this was never in the API anyway)
 
 ### Why this matters for A&R
+
 With Spotify dev mode restrictions, our agent now uses two proxies: Last.fm weekly×4 for listeners and playcount momentum for velocity. Dua Lipa currently scores ~80/100 using both proxies. With real Spotify Extended Quota data, scores would be even more accurate but the directional decisions are already correct.
 
 ### How we handle it now
+
 1. Spotify provides the artist ID (search always works)
 2. We detect `data_limited: true` in the Spotify response
 3. We automatically call Last.fm for real listener counts
@@ -271,69 +318,74 @@ With Spotify dev mode restrictions, our agent now uses two proxies: Last.fm week
 Apply at developer.spotify.com → app Settings → Request Extended Quota Mode. Approval takes 1-2 weeks for legitimate business use cases. Once approved, all restricted endpoints return full data automatically. No code changes needed — just an approved app.
 
 **Option 2 — Believe's internal data platform (most realistic)**
-Believe processes 800 billion streams annually and has direct DSP partnerships with Spotify, Apple Music, YouTube Music, and others. In a real deployment, the agent would query Believe's internal analytics platform (likely Tableau, Snowflake, or a proprietary system) rather than the public Spotify API. This would provide:
-- Real monthly listeners per market
-- Week-over-week and month-over-month trends
-- Platform breakdown (Spotify vs Apple vs YouTube)
-- Playlist placement data
-- Revenue per stream data
+Believe processes 800 billion streams annually and has direct DSP partnerships with Spotify, Apple Music, YouTube Music, and others. In a real deployment, the agent would query Believe's internal analytics platform rather than the public Spotify API.
 
 **Option 3 — Chartmetric or Soundcharts API**
-Third-party music analytics platforms aggregate data from all DSPs including Spotify, bypassing API restrictions. Chartmetric ($X/month) provides real Spotify monthly listeners, TikTok stats, radio airplay, and playlist data. This is the fastest commercial solution.
+Third-party music analytics platforms aggregate data from all DSPs including Spotify, bypassing API restrictions. Chartmetric ($X/month) provides real Spotify monthly listeners, TikTok stats, radio airplay, and playlist data.
 
 ---
 
 ## Known limitations summary
 
 | Limitation | Impact | Workaround used | Real solution |
-|-----------|--------|----------------|---------------|
+|-----------|--------|----------------|--------------|
 | Spotify dev mode | No follower/popularity/velocity | Last.fm weekly×4 proxy | Extended Quota, Chartmetric, or Believe internal |
 | No real MoM velocity | Proxy estimate only | Playcount/listener ratio proxy | Chartmetric API, Spotify Extended Quota, or Believe internal |
 | NewsAPI free tier | 100 req/day, headlines only | 24h cache per artist | NewsAPI Developer plan |
 | Pinecone mock data | 25 simulated profiles, not real | Realistic simulated data | Believe internal roster database |
 | YouTube free tier | 10K units/day | Sufficient for development | YouTube Partner API |
+| Render free tier | Cold starts ~30–50s after idle | Wake up before demos | Upgrade to paid instance |
 
 ---
 
 ## Setup — step by step
 
 ### Prerequisites
+
 - Python 3.11 or higher
 - Git
 - VS Code (recommended)
 - Accounts for: Anthropic, Spotify, Last.fm, NewsAPI, YouTube, Pinecone, OpenAI, Slack
 
 ### 1. Clone the repository
-```bash
+
+```
 git clone https://github.com/dbystrova26/project3_autonomous_agent.git
 cd project3_autonomous_agent
 ```
 
 ### 2. Create virtual environment
-```bash
+
+```
 python -m venv venv
 ```
 
 ### 3. Activate virtual environment
+
 **Windows (Git Bash):**
-```bash
+```
 source venv/Scripts/activate
 ```
+
 **Mac / Linux:**
-```bash
+```
 source venv/bin/activate
 ```
+
 You should see `(venv)` at the start of your terminal prompt.
 
 ### 4. Install dependencies
-```bash
+
+```
 pip install -r requirements.txt
 ```
 
 ### 5. Set up API keys
-```bash
+
+```
 cp .env.example .env
 ```
+
 Open `.env` and fill in all values:
 
 ```
@@ -353,45 +405,48 @@ SLACK_CHANNEL_ID        → right-click channel in Slack → Copy Link → last 
 See `docs/api_setup.md` for detailed instructions for each key.
 
 ### 6. Load artist data into Pinecone (one time only)
-```bash
+
+```
 python scripts/ingest_roster.py
 ```
+
 Embeds 25 artist profiles into Pinecone. Takes ~30 seconds. Run once only.
 
 ### 7. Run the tests
-```bash
+
+```
 python -m pytest tests/ -v
 ```
+
 Should show **17 passed**.
 
 ### 8. Start the API
-```bash
+
+```
 uvicorn api.main:app --port 8000 --log-level warning
 ```
+
 Keep this terminal open. Open a second terminal for commands.
 
-### 9. Expose the API publicly with ngrok (required for n8n)
+### 9. Expose the API publicly with ngrok (local development only)
+
+> **Note**: ngrok is only needed for local development. The deployed version at
+> https://ar-agent-zkjw.onrender.com is already publicly accessible — update
+> your n8n HTTP Request URL to the Render URL instead.
 
 Your API runs on `localhost:8000` — only accessible from your own machine.
 When you connect n8n Cloud (or any external service) to your agent, it needs
 a public URL it can actually reach over the internet. This is what ngrok does.
 
-**Why ngrok?**
-ngrok creates a secure tunnel from a public URL (e.g. `https://abc123.ngrok-free.app`)
-to your local port 8000. Requests that hit the public URL are forwarded to your
-machine in real time. It is the standard developer tool for this — used universally
-when testing webhooks, APIs, and integrations locally before deploying to a server.
-
-Without ngrok, n8n Cloud sends a request to `localhost:8000` — which means
-its own localhost, not yours. The request never reaches your machine.
-
 **Setup (one time):**
-1. Download ngrok from ngrok.com/download (Windows: just a .exe file)
+
+1. Download ngrok from ngrok.com/download
 2. Create a free account at ngrok.com
 3. Authenticate: `ngrok config add-authtoken YOUR_TOKEN`
 
 **Run ngrok (every session, in a separate terminal):**
-```bash
+
+```
 ngrok http 8000
 ```
 
@@ -401,19 +456,9 @@ Forwarding  https://abc123.ngrok-free.app -> http://localhost:8000
 ```
 
 Copy the `https://` URL — this is your public API address.
-Use it everywhere n8n asks for your API endpoint.
-
-**Test it works:**
-```bash
-curl https://abc123.ngrok-free.app/health
-```
-Expected: `{status:ok,service:ar-agent}`
-
-**Important**: ngrok free tier gives you a random URL each session.
-Every time you restart ngrok you get a new URL and must update it in n8n.
-To get a fixed URL, upgrade to ngrok paid tier or deploy the API to a server.
 
 **Running order (every dev session):**
+
 ```
 Terminal 1: uvicorn api.main:app --port 8000 --log-level warning
 Terminal 2: ngrok http 8000
@@ -424,60 +469,60 @@ Terminal 3: your commands (curl, pytest, etc.)
 
 ## How to use it
 
-### Option A — Interactive browser UI (easiest)
-Once the server is running, open in your browser:
-```
-http://127.0.0.1:8000/docs
-```
-FastAPI generates a full interactive UI. Click any endpoint, fill in the form, click Execute. No curl needed.
+### Option A — Web interface (easiest)
 
-### Option B — Command line
+Open https://ar-agent-zkjw.onrender.com in your browser. Type an artist name and click Evaluate. For SIGN decisions, click Generate Full Report to trigger the deep research agent. Download the report as an HTML file and open in Chrome → Ctrl+P → Save as PDF.
+
+### Option B — FastAPI docs UI
+
+```
+https://ar-agent-zkjw.onrender.com/docs
+```
+
+FastAPI generates a full interactive UI. Click any endpoint, fill in the form, click Execute.
+
+### Option C — Command line
 
 **Health check:**
-```bash
-curl http://127.0.0.1:8000/health
+```
+curl https://ar-agent-zkjw.onrender.com/health
 ```
 
 **Run triage (Windows Git Bash):**
-```bash
-curl -X POST http://127.0.0.1:8000/triage -H "Content-Type: application/json" -d "{\"artist_name\": \"Dua Lipa\", \"genre\": \"pop\"}"
+```
+curl -X POST https://ar-agent-zkjw.onrender.com/triage -H "Content-Type: application/json" -d "{\"artist_name\": \"Caribou\", \"genre\": \"electronic\"}"
 ```
 
 **Run triage (Mac/Linux):**
-```bash
-curl -X POST http://127.0.0.1:8000/triage \
-  -H "Content-Type: application/json" \
-  -d '{"artist_name": "Dua Lipa", "genre": "pop"}'
 ```
-
-**Run triage (PowerShell):**
-```powershell
-Invoke-RestMethod -Uri "http://127.0.0.1:8000/triage" -Method POST -ContentType "application/json" -Body '{"artist_name": "Dua Lipa", "genre": "pop"}'
+curl -X POST https://ar-agent-zkjw.onrender.com/triage \
+  -H "Content-Type: application/json" \
+  -d '{"artist_name": "Caribou", "genre": "electronic"}'
 ```
 
 **Run full research report (triggers SIGN flow):**
-```bash
-curl -X POST http://127.0.0.1:8000/research -H "Content-Type: application/json" -d "{\"artist_name\": \"Fisher\", \"genre\": \"electronic\", \"triage_score\": 74}"
 ```
-Report saved to `reports/` as a Markdown file.
+curl -X POST https://ar-agent-zkjw.onrender.com/research -H "Content-Type: application/json" -d "{\"artist_name\": \"Caribou\", \"genre\": \"electronic\", \"triage_score\": 72}"
+```
 
 ### Example triage response
+
 ```json
 {
-  "artist_name": "Dua Lipa",
-  "score": 0,
-  "decision": "PASS",
+  "artist_name": "Caribou",
+  "score": 72,
+  "decision": "SIGN",
   "signals": {
-    "monthly_listeners": 3303823,
-    "listeners": 3303823,
-    "playcount": 322064347,
-    "press_article_count": 44,
-    "press_tier1_count": 6,
+    "monthly_listeners": 5600000,
+    "listeners": 1400000,
+    "playcount": 47600000,
+    "press_article_count": 9,
+    "press_tier1_count": 3,
     "active_markets": 7,
-    "genres": ["pop", "synthpop", "electropop"],
+    "genres": ["electronic", "experimental", "indie"],
     "data_source": "spotify+lastfm"
   },
-  "reasoning": "Dua Lipa is currently signed to Warner Music Group and is not available for Believe to sign. Believe only works with independent artists.",
+  "reasoning": "Caribou demonstrates exceptional streaming performance with 5.5M monthly listeners and strong momentum at 12% follower growth...",
   "spotify_unavailable": false,
   "news_unavailable": false
 }
@@ -512,7 +557,7 @@ Webhook → HTTP Request /triage → Switch
 ```bash
 curl -X POST "https://daria-b.n8n.irn.hk/webhook/ar-triage" \
   -H "Content-Type: application/json" \
-  -d '{"artist_name": "Fisher", "genre": "electronic"}'
+  -d '{"artist_name": "Caribou", "genre": "electronic"}'
 ```
 
 **Batch test — 15 artists at once:**
@@ -545,7 +590,7 @@ and Claude's reasoning.
 
 1. Create account at app.n8n.cloud
 2. Create new workflow and build nodes as described in AGENTS.md
-3. Update HTTP Request URL to your ngrok or deployment URL
+3. Update HTTP Request URL to https://ar-agent-zkjw.onrender.com
 4. Connect Google Sheets and Slack credentials
 5. Activate workflow
 
@@ -583,6 +628,7 @@ a major label artist. Only direct primary signings trigger PASS.
 
 | Artist | Label status | Decision |
 |--------|-------------|---------|
+| Caribou | Independent | SIGN (score 72) |
 | Fisher | Independent (Sweat It Out) | SIGN (score 74) |
 | Rema | Independent (Mavin Records) | WATCH (score 67) |
 | Dua Lipa | Warner Music Group (primary) | PASS (score 0) |
@@ -598,14 +644,14 @@ project3_autonomous_agent/
 │   ├── triage_chain.py       # LangChain: Spotify+LastFM+News → PASS/WATCH/SIGN
 │   └── research_graph.py     # LangGraph: parallel research + Claude report
 ├── api/
-│   └── main.py               # FastAPI: /triage, /research, /health
+│   └── main.py               # FastAPI: /triage, /research, /health, / (interface)
 ├── data/
 │   └── roster_seed.json      # 25 simulated Believe artist profiles
 ├── docs/
 │   ├── agent_spec.md         # Project spec written for the agent
 │   ├── api_setup.md          # API costs, limits, auth instructions
 │   └── stories.md            # Agile backlog (14 user stories)
-├── reports/                  # Generated A&R reports saved here
+├── reports/                  # Generated A&R reports saved here (ephemeral on Render)
 ├── scripts/
 │   └── ingest_roster.py      # Loads roster data into Pinecone (run once)
 ├── skills/
@@ -622,6 +668,7 @@ project3_autonomous_agent/
 │   ├── news_tool.py          # NewsAPI wrapper
 │   ├── youtube_tool.py       # YouTube Data API wrapper
 │   └── pinecone_tool.py      # Pinecone vector search
+├── interface.html            # Web UI served at / by FastAPI
 ├── AGENTS.md                 # Agent instructions for both agents
 ├── .env.example              # Environment variable template
 ├── .gitignore                # Prevents secrets from being committed
@@ -632,32 +679,33 @@ project3_autonomous_agent/
 
 ## Sample reports
 
-The  directory contains 4 real agent-generated reports
-demonstrating all decision types:
+The reports directory contains agent-generated reports demonstrating all decision types:
 
-| File | Artist | Genre | Decision | Reason |
-|------|--------|-------|---------|--------|
-|  +  | Fisher | Electronic | SIGN (74/100) | Independent artist, strong streaming + press |
-|  +  | Rema | Afrobeats | WATCH (67/100) | Borderline — good signals but below SIGN threshold |
-|  +  | Dua Lipa | Pop | PASS (0/100) | Signed to Warner Music Group — unavailable |
-|  +  | Gengahr | Indie | PASS (35/100) | Insufficient streaming and press signals |
+| Artist | Genre | Decision | Reason |
+|--------|-------|---------|--------|
+| Caribou | Electronic | SIGN (72/100) | Independent, 5.6M listeners, tier-1 press |
+| Fisher | Electronic | SIGN (74/100) | Independent artist, strong streaming + press |
+| Rema | Afrobeats | WATCH (67/100) | Borderline — good signals but below SIGN threshold |
+| Dua Lipa | Pop | PASS (0/100) | Signed to Warner Music Group — unavailable |
+| Gengahr | Indie | PASS (35/100) | Insufficient streaming and press signals |
 
-Each report is saved as both Markdown and PDF automatically.
-Reports include 9 sections: executive summary, artist overview,
+Each report includes 9 sections: executive summary, artist overview,
 streaming analysis, press analysis, digital presence, roster comparison,
 risk factors, recommendation, and data sources.
+
+Reports are generated fresh on each request. Download as HTML via the web interface
+and open in Chrome → Ctrl+P → Save as PDF.
 
 ---
 
 ## Future improvements
 
-- Web interface for non-technical A&R managers (planned for next sprint)
 - Real Spotify data once Extended Quota Mode approved
 - Chartmetric API integration for MoM velocity data
 - Real Believe roster data via internal API
-- n8n webhook for fully automated pipeline (no curl needed)
 - Multi-artist comparison reports
 - Weekly automated monitoring for WATCH artists
+- Upgrade Render instance to eliminate cold start delays
 
 ---
 
