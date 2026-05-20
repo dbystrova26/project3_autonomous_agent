@@ -12,8 +12,9 @@ An A&R (Artists & Repertoire) manager at Believe receives hundreds of artist sub
 1. Submit an artist name via the web interface at https://ar-agent-zkjw.onrender.com or directly via API
 2. The agent pulls data from Spotify, Last.fm, YouTube, NewsAPI, and Believe's roster database
 3. It scores the artist 0–100 and returns **PASS / WATCH / SIGN**
-4. For SIGN decisions it generates a full structured report
-5. For WATCH decisions it sends a Slack alert to the A&R manager
+4. A full structured 9-section report is available for **all three decisions** — each with tailored framing
+5. For WATCH and SIGN decisions it sends a Slack alert to the A&R manager
+6. All evaluated artists are saved to a persistent **Artist Universe** with pin/watchlist functionality
 
 **No human effort needed until a decision actually requires human judgment.**
 
@@ -23,7 +24,7 @@ An A&R (Artists & Repertoire) manager at Believe receives hundreds of artist sub
 
 **https://ar-agent-zkjw.onrender.com**
 
-Enter any artist name. The agent checks Spotify, Last.fm, NewsAPI and Believe's roster database and returns a data-driven decision in seconds. For SIGN decisions, generate a full 9-section A&R report and download it as HTML/PDF.
+Enter any artist name. The agent checks Spotify, Last.fm, NewsAPI and Believe's roster database and returns a data-driven decision in seconds. Generate a full 9-section A&R report for any decision — SIGN, WATCH, or PASS — each with tailored framing, downloadable as HTML/PDF. The **Watchlist & Universe** tab saves every evaluation automatically, lets you pin SIGN and WATCH artists, sort and filter the full universe, and refresh stats with live data.
 
 > Free tier note: the service spins down after 15 min of inactivity. First request after idle takes ~30–50s to wake up.
 
@@ -693,6 +694,15 @@ Each report includes 9 sections: executive summary, artist overview,
 streaming analysis, press analysis, digital presence, roster comparison,
 risk factors, recommendation, and data sources.
 
+Reports are now available for **all three decisions** — SIGN, WATCH, and PASS —
+each with decision-specific framing:
+
+| Decision | Report focus |
+|----------|-------------|
+| SIGN | Why to sign now, label tier recommendation, specific next steps |
+| WATCH | What's promising, what's missing, what needs to change to become SIGN, re-evaluate timeline |
+| PASS | Primary reason for passing, what would need to change in 6–12 months |
+
 Reports are generated fresh on each request. Download as HTML via the web interface
 and open in Chrome → Ctrl+P → Save as PDF.
 
@@ -703,8 +713,8 @@ and open in Chrome → Ctrl+P → Save as PDF.
 - Real Spotify data once Extended Quota Mode approved
 - Chartmetric API integration for MoM velocity data
 - Real Believe roster data via internal API
-- Multi-artist comparison reports
-- Weekly automated monitoring for WATCH artists
+- Weekly automated monitoring for WATCH artists (email digest)
+- Multi-artist batch evaluation via the interface
 - Upgrade Render instance to eliminate cold start delays
 
 ---
