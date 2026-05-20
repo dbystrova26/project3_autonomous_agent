@@ -484,6 +484,8 @@ async function genReport() {
     const cr = await fetch(`${API}/reports/${fn}/content`);
     if (cr.ok) {
       const cd = await cr.json();
+      currentReportText = cd.content;
+      currentArtistName = cur.artist_name || cur.artist;
       cont.innerHTML = '<div class="report-body">'+md2html(cd.content)+'</div>';
     } else {
       cont.innerHTML = '<div class="report-body"><p>Report generated and saved to <strong>reports/</strong> folder.</p></div>';
