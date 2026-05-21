@@ -549,12 +549,13 @@ through the complete pipeline — no manual curl commands needed.
 ```
 Web interface → /triage API → result shown in browser
                            → background POST → n8n webhook
-                                               ├── SIGN  → Sheets log → Slack alert
-                                               ├── WATCH → Sheets log → Slack alert
-                                               └── PASS  → Sheets log (silent)
+                                               ├── Append row in sheet (ALL decisions)
+                                               └── Switch (SIGN/WATCH only)
+                                                     ├── SIGN  → Slack alert
+                                                     └── WATCH → Slack alert
 ```
 
-The API fires the n8n webhook as a background task after every triage call — non-blocking, so the browser response is never delayed. If the webhook fails (e.g. n8n is down), the API response is unaffected.
+The API fires the n8n webhook as a background task after every triage call — non-blocking, so the browser response is never delayed. Every evaluation is logged to Google Sheets regardless of decision. Slack alerts are sent only for SIGN and WATCH decisions. If the webhook fails (e.g. n8n is down), the API response is unaffected.
 
 ### How to trigger
 
@@ -582,9 +583,9 @@ bash test_workflow_15_artists.sh
 
 | Decision | Score | Action |
 |---------|-------|--------|
-| SIGN | >= 70 | Logged to Sheets + Slack alert |
-| WATCH | 40-69 | Logged to Sheets + Slack alert |
-| PASS | < 40 or major label | Logged to Sheets only |
+| SIGN | >= 70 | Logged to Sheets + Slack alert ✅ |
+| WATCH | 40-69 | Logged to Sheets + Slack alert 👀 |
+| PASS | < 40 or major label | Logged to Sheets silently |
 
 ### Google Sheets — AR Agent Decision Log
 
@@ -605,7 +606,7 @@ and Claude's reasoning.
 2. Create new workflow and build nodes as described in AGENTS.md
 3. Update HTTP Request URL to https://ar-agent-zkjw.onrender.com
 4. Connect Google Sheets and Slack credentials
-5. Activate workflow
+5. Publish workflow (green Published status at top right)
 
 ---
 
