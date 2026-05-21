@@ -401,6 +401,7 @@ PINECONE_INDEX          → believe-roster
 OPENAI_API_KEY          → platform.openai.com/api-keys
 SLACK_BOT_TOKEN         → api.slack.com/apps
 SLACK_CHANNEL_ID        → right-click channel in Slack → Copy Link → last part
+N8N_WEBHOOK_URL         → your n8n webhook URL e.g. https://daria-b.n8n.irn.hk/webhook/ar-triage
 ```
 
 See `docs/api_setup.md` for detailed instructions for each key.
@@ -546,15 +547,26 @@ through the complete pipeline — no manual curl commands needed.
 ### Workflow structure
 
 ```
-Webhook → HTTP Request /triage → Switch
-                                  ├── SIGN  → Sheets log → Slack alert
-                                  ├── WATCH → Sheets log → Slack alert
-                                  └── PASS  → Sheets log (silent)
+Web interface → /triage API → result shown in browser
+                           → background POST → n8n webhook
+                                               ├── SIGN  → Sheets log → Slack alert
+                                               ├── WATCH → Sheets log → Slack alert
+                                               └── PASS  → Sheets log (silent)
 ```
+
+The API fires the n8n webhook as a background task after every triage call — non-blocking, so the browser response is never delayed. If the webhook fails (e.g. n8n is down), the API response is unaffected.
 
 ### How to trigger
 
-**Production (activate workflow in n8n first):**
+**From the web interface (primary flow):**
+The interface at `https://ar-agent-zkjw.onrender.com` calls `/triage` directly. After returning the result to the browser, the API automatically fires a background POST to the n8n webhook — so every evaluation from the interface also triggers Google Sheets logging and Slack alerts. No separate curl call needed.
+
+**Set `N8N_WEBHOOK_URL` in Render environment variables:**
+```
+N8N_WEBHOOK_URL = https://daria-b.n8n.irn.hk/webhook/ar-triage
+```
+
+**Direct webhook call (for batch testing):**
 ```bash
 curl -X POST "https://daria-b.n8n.irn.hk/webhook/ar-triage" \
   -H "Content-Type: application/json" \
