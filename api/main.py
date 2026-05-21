@@ -11,6 +11,7 @@ Endpoints:
     GET  /reports             -- list all generated reports
     GET  /reports/{filename}  -- download a specific report file
     GET  /reports/{filename}/content -- return report as JSON text (for n8n)
+    GET  /                    -- serve web interface
 
 Run with:
     uvicorn api.main:app --port 8000 --log-level warning
@@ -23,12 +24,13 @@ import os
 import sys
 from pathlib import Path
 
+import httpx
 from dotenv import load_dotenv
 load_dotenv()
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from fastapi import FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -54,6 +56,10 @@ app.add_middleware(
 )
 
 REPORTS_DIR = "reports"
+
+# n8n webhook URL — set this as an environment variable in Render dashboard
+# N8N_WEBHOOK_URL=https://daria-b.n8n.irn.hk/webhook/ar-triage
+N8N_WEBHOOK_URL = os.getenv("N8N_WEBHOOK_URL", "")
 
 
 # ---------------------------------------------------------------------------
@@ -85,6 +91,29 @@ class ResearchRequest(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# n8n webhook — fire and forget
+# ---------------------------------------------------------------------------
+
+def notify_n8n(payload: dict) -> None:
+    """
+    Fire a POST to the n8n webhook with the triage result.
+    Runs as a FastAPI background task — never blocks the API response.
+    n8n handles Google Sheets logging and Slack alerts.
+    """
+    if not N8N_WEBHOOK_URL:
+        logger.debug("N8N_WEBHOOK_URL not set — skipping webhook notification")
+        return
+
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            response = client.post(N8N_WEBHOOK_URL, json=payload)
+            logger.info(f"n8n webhook notified: {response.status_code} for {payload.get('artist_name')}")
+    except Exception as e:
+        # Never let a webhook failure affect the API response
+        logger.warning(f"n8n webhook failed (non-critical): {e}")
+
+
+# ---------------------------------------------------------------------------
 # Health
 # ---------------------------------------------------------------------------
 
@@ -99,11 +128,14 @@ def health():
 # ---------------------------------------------------------------------------
 
 @app.post("/triage", response_model=TriageResponse)
-def triage(request: TriageRequest):
+def triage(request: TriageRequest, background_tasks: BackgroundTasks):
     """
     Run the fast LangChain triage chain on an artist.
     Returns PASS / WATCH / SIGN with score and reasoning.
     Completes in ~15 seconds.
+
+    After returning the result, fires a background POST to the n8n webhook
+    so Google Sheets and Slack are updated automatically.
     """
     logger.info(f"Triage request: {request.artist_name} ({request.genre})")
     try:
@@ -114,6 +146,21 @@ def triage(request: TriageRequest):
             market=request.market,
         )
         logger.info(f"Triage result: {result['decision']} (score={result['score']})")
+
+        # Fire n8n webhook in background — non-blocking
+        # Builds the same payload shape n8n already expects
+        webhook_payload = {
+            "artist_name": request.artist_name,
+            "genre": request.genre,
+            "score": result["score"],
+            "decision": result["decision"],
+            "reasoning": result["reasoning"],
+            "signals": result.get("signals", {}),
+            "spotify_unavailable": result.get("spotify_unavailable", False),
+            "news_unavailable": result.get("news_unavailable", False),
+        }
+        background_tasks.add_task(notify_n8n, webhook_payload)
+
         return result
     except Exception as e:
         logger.error(f"Triage failed for {request.artist_name}: {e}", exc_info=True)
@@ -128,9 +175,8 @@ def triage(request: TriageRequest):
 def research(request: ResearchRequest):
     """
     Run the full LangGraph research agent and generate a signing report.
-    Called by n8n only when triage decision = SIGN.
-    Takes up to 2 minutes — n8n timeout should be set to 300000ms.
-    Returns report_path and pdf_path for downstream nodes.
+    Called by the web interface for any decision (SIGN / WATCH / PASS).
+    Takes up to 2 minutes.
     """
     logger.info(f"Research request: {request.artist_name} ({request.genre})")
     try:
@@ -164,10 +210,7 @@ def research(request: ResearchRequest):
 
 @app.get("/reports")
 def list_reports():
-    """
-    List all generated reports in the reports/ directory.
-    Returns filenames sorted by date descending.
-    """
+    """List all generated reports in the reports/ directory."""
     os.makedirs(REPORTS_DIR, exist_ok=True)
     files = sorted(
         [f for f in os.listdir(REPORTS_DIR) if f.endswith((".md", ".pdf"))],
@@ -178,14 +221,7 @@ def list_reports():
 
 @app.get("/reports/{filename}")
 def download_report(filename: str):
-    """
-    Download a specific report file as binary.
-    Used by n8n Google Drive upload node to fetch the PDF.
-
-    Example:
-        GET /reports/2026-05-19_fisher_SIGN.pdf
-    """
-    # Security: prevent path traversal
+    """Download a specific report file as binary."""
     if ".." in filename or "/" in filename or "\\" in filename:
         raise HTTPException(status_code=400, detail="Invalid filename")
 
@@ -200,17 +236,10 @@ def download_report(filename: str):
 
 @app.get("/reports/{filename}/content")
 def get_report_content(filename: str):
-    """
-    Return report content as JSON text.
-    Used by n8n to read report text for Slack messages.
-
-    Example:
-        GET /reports/2026-05-19_fisher_SIGN.md/content
-    """
+    """Return report content as JSON text for n8n Slack nodes."""
     if ".." in filename or "/" in filename or "\\" in filename:
         raise HTTPException(status_code=400, detail="Invalid filename")
 
-    # For content endpoint, always use .md version
     md_filename = filename.replace(".pdf", ".md")
     path = os.path.join(REPORTS_DIR, md_filename)
 
@@ -225,8 +254,10 @@ def get_report_content(filename: str):
         "content": content,
         "size_chars": len(content),
     }
+
+
 # ---------------------------------------------------------------------------
-# Interface
+# Interface — serve web UI at root
 # ---------------------------------------------------------------------------
 
 @app.get("/")
