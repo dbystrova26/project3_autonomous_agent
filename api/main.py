@@ -151,7 +151,7 @@ def triage(request: TriageRequest, background_tasks: BackgroundTasks):
         # Builds the same payload shape n8n already expects
         webhook_payload = {
             "artist_name": request.artist_name,
-            "genre": request.genre,
+            "genre": result.get("signals", {}).get("genres", [""])[0] or request.genre,
             "score": result["score"],
             "decision": result["decision"],
             "reasoning": result["reasoning"],
