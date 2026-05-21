@@ -30,47 +30,54 @@ def _get_client() -> spotipy.Spotify:
             auth_manager=SpotifyClientCredentials(
                 client_id=os.environ["SPOTIFY_CLIENT_ID"],
                 client_secret=os.environ["SPOTIFY_CLIENT_SECRET"],
-            )
+            ),
+            requests_timeout=5,        # fail fast — never wait for rate limit retry
+            retries=0,                 # disable spotipy's internal retry logic
+            backoff_factor=0,          # our own retry_with_backoff handles retries
         )
     return _sp
 
 
-@retry_with_backoff(max_retries=3, base_delay=1.0)
+@retry_with_backoff(max_retries=2, base_delay=1.0)
 def get_artist_overview(artist_name: str, market: str = "US") -> dict:
     """
     Fetch core artist metrics for triage scoring.
     Returns mock estimates in Spotify dev mode (data_limited: True).
+    Fails fast (5s timeout) so Last.fm fallback triggers immediately.
     """
-    sp = _get_client()
+    try:
+        sp = _get_client()
+        results = sp.search(q=artist_name, type="artist", limit=1)
+        items = results.get("artists", {}).get("items", [])
 
-    results = sp.search(q=artist_name, type="artist", limit=1)
-    items = results.get("artists", {}).get("items", [])
+        if not items:
+            raise ValueError(f"Artist not found on Spotify: {artist_name}")
 
-    if not items:
-        raise ValueError(f"Artist not found on Spotify: {artist_name}")
+        artist = items[0]
+        artist_id = artist["id"]
 
-    artist = items[0]
-    artist_id = artist["id"]
+        logger.warning(f"Spotify dev mode: limited data for {artist_name}, using estimates")
 
-    # Spotify dev mode restricts followers/popularity
-    # Return estimated data flagged as limited
-    logger.warning(f"Spotify dev mode: limited data for {artist_name}, using estimates")
+        return {
+            "artist_id": artist_id,
+            "artist_name": artist.get("name", artist_name),
+            "monthly_listeners": 500000,
+            "followers": 100000,
+            "follower_velocity_pct": 15.0,
+            "active_markets": 8,
+            "genres": [],
+            "popularity": 50,
+            "velocity_estimated": True,
+            "data_limited": True,
+        }
+    except Exception as e:
+        # Any Spotify failure — rate limit, timeout, connection error —
+        # raises immediately so triage_chain triggers Last.fm fallback
+        logger.warning(f"Spotify failed for {artist_name}: {e} — Last.fm fallback will trigger")
+        raise
 
-    return {
-        "artist_id": artist_id,
-        "artist_name": artist.get("name", artist_name),
-        "monthly_listeners": 500000,
-        "followers": 100000,
-        "follower_velocity_pct": 15.0,
-        "active_markets": 8,
-        "genres": [],
-        "popularity": 50,
-        "velocity_estimated": True,
-        "data_limited": True,
-    }
 
-
-@retry_with_backoff(max_retries=3, base_delay=1.0)
+@retry_with_backoff(max_retries=2, base_delay=1.0)
 def get_top_tracks(artist_id: str, market: str = "US") -> list[dict]:
     """
     Fetch artist top 5 tracks.
@@ -93,26 +100,14 @@ def get_top_tracks(artist_id: str, market: str = "US") -> list[dict]:
     except Exception as e:
         logger.warning(f"Top tracks unavailable (dev mode): {e}")
         return [
-            {
-                "name": "Track 1 (estimated)",
-                "popularity": 70,
-                "duration_ms": 200000,
-                "explicit": False,
-                "album_name": "Album",
-                "track_id": "mock1",
-            },
-            {
-                "name": "Track 2 (estimated)",
-                "popularity": 65,
-                "duration_ms": 195000,
-                "explicit": False,
-                "album_name": "Album",
-                "track_id": "mock2",
-            },
+            {"name": "Track 1 (estimated)", "popularity": 70, "duration_ms": 200000,
+             "explicit": False, "album_name": "Album", "track_id": "mock1"},
+            {"name": "Track 2 (estimated)", "popularity": 65, "duration_ms": 195000,
+             "explicit": False, "album_name": "Album", "track_id": "mock2"},
         ]
 
 
-@retry_with_backoff(max_retries=3, base_delay=1.0)
+@retry_with_backoff(max_retries=2, base_delay=1.0)
 def get_audio_features(track_ids: list[str]) -> dict:
     """
     Fetch averaged audio features for a list of tracks.
@@ -120,16 +115,12 @@ def get_audio_features(track_ids: list[str]) -> dict:
     """
     try:
         sp = _get_client()
-
         if not track_ids or "mock" in track_ids[0]:
             raise Exception("Mock track IDs — skipping API call")
-
         features_list = sp.audio_features(track_ids[:10])
         valid = [f for f in features_list if f is not None]
-
         if not valid:
             return {}
-
         keys = ["danceability", "energy", "valence", "tempo",
                 "acousticness", "instrumentalness"]
         return {
@@ -139,16 +130,12 @@ def get_audio_features(track_ids: list[str]) -> dict:
     except Exception as e:
         logger.warning(f"Audio features unavailable (dev mode): {e}")
         return {
-            "danceability": 0.65,
-            "energy": 0.70,
-            "valence": 0.60,
-            "tempo": 120.0,
-            "acousticness": 0.15,
-            "instrumentalness": 0.05,
+            "danceability": 0.65, "energy": 0.70, "valence": 0.60,
+            "tempo": 120.0, "acousticness": 0.15, "instrumentalness": 0.05,
         }
 
 
-@retry_with_backoff(max_retries=3, base_delay=1.0)
+@retry_with_backoff(max_retries=2, base_delay=1.0)
 def get_related_artists(artist_id: str) -> list[dict]:
     """
     Fetch related artists for genre/scene context.
