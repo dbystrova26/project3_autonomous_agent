@@ -30,6 +30,19 @@ Enter any artist name. The agent checks Spotify, Last.fm, NewsAPI and Believe's 
 
 ---
 
+## Screenshots
+
+**n8n automation pipeline**
+![n8n workflow](screenshots/01_n8n%20workflow%20.png)
+
+**Google Sheets decision log — all evaluations logged automatically**
+![Google Sheets Decision Log](screenshots/02_Google%20Sheets%20Decision%20Log.png)
+
+**Slack alerts for SIGN and WATCH decisions**
+![Slack alerts](screenshots/03_Slack%20alert%20for%20SIGN%20or%20WATCH%20Decision.png)
+
+---
+
 ## Architecture
 
 ```
